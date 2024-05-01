@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container mt-5">
+<div class="container">
     <h2>Search Results</h2>
     {% for id, title, content, score in results %}
         <div class="card my-3">
@@ -22,5 +22,7 @@
     const queryIdentifiers = results.map(item => `'${item[0]}'`).join(",");
     drawGraph(`MATCH (doc:Document) WHERE elementId(doc) IN [${queryIdentifiers}] RETURN doc`);
 </script>
+
+<script src="{{ url_for('static',filename='search.js') }}"></script>
 
 {% endblock %}

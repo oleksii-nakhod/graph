@@ -195,7 +195,7 @@ def login():
 
     session['logged_in'] = True
     session['id'] = existing_user[0][0]
-    session['name'] = existing_user[0][1]
+    session['username'] = existing_user[0][1]
     return jsonify({'message': 'Login successful'}), 200
 
 @app.route('/signup', methods=['POST'])
@@ -221,9 +221,9 @@ def signup():
     print(hashed_password)
     query = """
         CREATE (u:User {username: $username, password: $password})
-        RETURN u
+        RETURN elementId(u) AS id, u.username AS username
     """
-    conn.query(
+    user = conn.query(
         query=query,
         parameters={
             'username': username,
@@ -231,9 +231,18 @@ def signup():
         },
         db="neo4j"
     )
+    session['logged_in'] = True
+    session['id'] = user[0][0]
+    session['username'] = user[0][1]
     return jsonify({'message': 'Signup successful'}), 201
 
 
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+    
 def check_cache(cache_key):
     cached_data = cache.get(cache_key)
     if cached_data:

@@ -13,9 +13,41 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
     <script src="https://unpkg.com/neovis.js@2.1.0"></script>
-    <script src="{{ url_for('static',filename='scripts.js') }}"></script>
+    
     <script>
+        const url_signup = {{ url_for("signup")|tojson }}
+        const url_login = {{ url_for("login")|tojson }}
+        const url_logout = {{ url_for("logout")|tojson }}
         const url_create_document = {{ url_for("create_document")|tojson }}
+    </script>
+
+    <script>
+        function drawGraph(initialCypher) {
+            const config = {
+                containerId: "viz",
+                neo4j: {
+                    serverUrl: "neo4j://localhost:7687",
+                    serverUser: "anonymous",
+                    serverPassword: "password",
+                },
+                labels: {
+                    Document: {
+                        label: "title",
+                        value: "pagerank",
+                        group: "community"
+                    }
+                },
+                relationships: {
+                    INTERACTS: {
+                        value: "weight"
+                    }
+                },
+                initialCypher
+            };
+
+            neoViz = new NeoVis.default(config);
+            neoViz.render();
+        }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static',filename='styles/styles.css') }}">
@@ -30,14 +62,83 @@
         <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
-        <ul class="navbar-nav mb-2 mb-lg-0">
-        </li><li class="nav-item">
-        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modal-login">Log in</a>
-        </li>
-        <button class="btn-primary rounded navbar-btn" href="#" data-bs-toggle="modal" data-bs-target="#modal-signup">Sign up</button></ul>
+            <ul class="navbar-nav mb-2 mb-lg-0">
+                {% if 'logged_in' in session and session['logged_in'] %}
+                <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    {{ session['username'] }}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="javascript:void(0)" id="btn-logout" onclick="logOut()">Log out</a></li>
+                </ul>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modal-login">Log in</a>
+                </li>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-signup">Sign up</button>
+                {% endif %}
+            </ul>
+            </div>
         </div>
+    </nav>
+    <div class="modal fade" id="modal-signup" tabindex="-1" aria-labelledby="modal-signup-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-signup-label">Sign up</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-signup" onsubmit="return validateSignupForm();">
+                    <div class="mb-3">
+                        <label for="input-signup-username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="input-signup-name" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="input-signup-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="input-signup-password" name="password" required>
+                    </div>
+                    <div class="alert alert-warning collapse" id="message-signup-error">
+                        Error
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" id="btn-signup">Sign up</button>
+                    <p>Already have an account? <a id="link-login-modal" href="javascript:void(0)">Log in</a></p>
+                </form>
+            </div>
+            </div>
         </div>
-        </nav>
+    </div>
+    <div class="modal fade" id="modal-login" tabindex="-1" aria-labelledby="modal-login-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-login-label">Log in</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-login" onsubmit="return validateLoginForm();">
+                    <div class="mb-3">
+                        <label for="input-login-username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="input-login-username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="input-login-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="input-login-password" name="password" required>
+                    </div>
+                    <div class="alert alert-warning collapse" id="message-login-error">
+                        Error
+                    </div>
+                    <div class="alert alert-success collapse" id="message-login-success">
+                        Success
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" id="btn-login">Log in</button>
+                    <p>Don't have an account? <a id="link-signup-modal" href="javascript:void(0)">Sign up</a></p>
+                </form>
+            </div>
+            </div>
+        </div>
+    </div>
     <main class="container-fluid" id="home-content">
         <form autocomplete="off" onsubmit="return validateSearchForm()" id="form-search" name="form-search">
             <div class="row">
@@ -49,8 +150,8 @@
                 </div>
                 <button type="submit" class="btn btn-primary col-12 col-md-4 mb-3" id="btn-get-matches">Search</button>
             </div>
-
         </form>
+
         <div id="alert-search" class="alert alert-warning d-none" role="alert">
             Please input a search term to get the matches.
         </div>
@@ -72,5 +173,7 @@
             </div>
         </nav>
     </footer> -->
+
+    <script src="{{ url_for('static',filename='scripts.js') }}"></script>
 </body>
 </html>
