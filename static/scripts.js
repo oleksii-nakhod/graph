@@ -44,8 +44,8 @@ function drawGraph(initialCypher) {
         containerId: "viz",
         neo4j: {
             serverUrl: "neo4j://localhost:7687",
-            serverUser: "neo4j",
-            serverPassword: "k59D5ftw^N^WUm",
+            serverUser: "anonymous",
+            serverPassword: "password",
         },
         labels: {
             Document: {

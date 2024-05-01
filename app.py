@@ -1,7 +1,6 @@
-from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
+from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, session
 from waitress import serve
 from flask_caching import Cache
-from feedgen.feed import FeedGenerator
 import logging
 import os
 from dotenv import load_dotenv
@@ -10,10 +9,12 @@ import json
 from openai import OpenAI
 from datetime import datetime, timedelta
 from neo4j import GraphDatabase
+import bcrypt
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY")
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 app.logger.info('Logging setup complete')
@@ -33,10 +34,6 @@ openai_client = OpenAI(
 
 URI = os.environ.get("NEO4J_URI")
 AUTH = (os.environ.get("NEO4J_USERNAME"), os.environ.get("NEO4J_PASSWORD"))
-
-driver = GraphDatabase.driver(URI, auth=AUTH)
-driver.verify_connectivity()
-
 
 class Neo4jConnection:
     
@@ -75,26 +72,47 @@ def create_openai_embedding(input):
     )
     return response
 
+def hash_password(password):
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed_password
+
+def verify_password(input_password, hashed_password):
+    if isinstance(input_password, str):
+        input_password = input_password.encode('utf-8')
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode('utf-8')
+    print("input_password", input_password)
+    print("hashed_password", hashed_password)
+    return bcrypt.checkpw(input_password, hashed_password)
+
+
 
 conn = Neo4jConnection(
     uri=URI, 
     auth=AUTH           
 )
 
-query = """
-    CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
-    FOR (doc:Document)
-    ON (doc.embedding)
-    OPTIONS {indexConfig: {
-        `vector.dimensions`: 1536,
-        `vector.similarity_function`: 'cosine'
-    }}
-"""
-conn.query(
-    query=query,
-    db="neo4j"
-)
+init_queries = {
+    "create_vector_index_query": """
+        CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
+        FOR (doc:Document)
+        ON (doc.embedding)
+        OPTIONS {indexConfig: {
+            `vector.dimensions`: 1536,
+            `vector.similarity_function`: 'cosine'
+        }}
+    """,
+    "create_anonymous_user_query": """
+        CREATE USER anonymous IF NOT EXISTS SET PASSWORD 'password' CHANGE NOT REQUIRED
+    """,
+    "grant_read_access_query": """
+        GRANT ROLE reader TO anonymous
+    """
+}
 
+for query in init_queries.values():
+    conn.query(query=query)
 
 @app.route('/', methods=['GET'])
 def index():
@@ -110,9 +128,8 @@ def search():
     openai_response = create_openai_embedding(query)
     
     neo4j_query = """
-        MATCH (doc:Document)
         CALL db.index.vector.queryNodes('document-embeddings', $num_results, $embedding) YIELD node AS similarDocument, score
-        RETURN id(similarDocument) AS nodeId,similarDocument.title AS title, similarDocument.content AS content, score
+        RETURN elementId(similarDocument) AS nodeId,similarDocument.title AS title, similarDocument.content AS content, score
     """
     results = conn.query(
         query=neo4j_query,
@@ -127,6 +144,9 @@ def search():
 
 @app.route('/create', methods=['POST'])
 def create_document():
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'error': 'You do not have permission to create documents'}), 403
+    
     data = request.json
 
     if not data or 'title' not in data or 'content' not in data:
@@ -149,6 +169,69 @@ def create_document():
     )
     
     return jsonify({'message': 'Document created successfully'}), 201
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+    existing_user_query = """
+        MATCH (u:User {username: $username})
+        RETURN elementId(u) AS id, u.username AS username, u.password AS password
+    """
+    existing_user = conn.query(
+        query=existing_user_query,
+        parameters={'username': username},
+        db="neo4j"
+    )
+    if not existing_user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    hashed_password = existing_user[0][2]
+    if not verify_password(password, hashed_password):
+        return jsonify({'error': 'Incorrect password'}), 401
+
+    session['logged_in'] = True
+    session['id'] = existing_user[0][0]
+    session['name'] = existing_user[0][1]
+    return jsonify({'message': 'Login successful'}), 200
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+    
+    existing_user_query = """
+        MATCH (u:User {username: $username})
+        RETURN count(u) > 0 AS exists
+    """
+    existing_user = conn.query(
+        query=existing_user_query,
+        parameters={'username': username},
+        db="neo4j"
+    )[0][0]
+    if existing_user:
+        return jsonify({'error': 'Username already exists'}), 409
+    
+    hashed_password = hash_password(password)
+    print(hashed_password)
+    query = """
+        CREATE (u:User {username: $username, password: $password})
+        RETURN u
+    """
+    conn.query(
+        query=query,
+        parameters={
+            'username': username,
+            'password': hashed_password.decode('utf-8')
+        },
+        db="neo4j"
+    )
+    return jsonify({'message': 'Signup successful'}), 201
 
 
 def check_cache(cache_key):
