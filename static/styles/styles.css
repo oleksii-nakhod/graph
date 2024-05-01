@@ -59,3 +59,9 @@ h4 {
     border: 1px solid lightgray;
     font: 22pt arial;
 }
+
+#logo {
+    height: 48px;
+    width: auto;
+    margin: 0px 5px 5px 0px;
+}

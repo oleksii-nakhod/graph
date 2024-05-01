@@ -1,3 +1,18 @@
+function validateSearchForm() {
+    const query = document.querySelector('#input-query').value;
+    const alertSearch = document.querySelector('#alert-search');
+
+    if (!query) {
+        alertSearch.classList.remove('d-none');
+        return false;
+    }
+
+    alertSearch.classList.add('d-none');
+    window.location.href = '/search?q=' + encodeURIComponent(query);
+    return false;
+}
+
+
 function validateDocumentForm() {
     const title = document.querySelector('#document-title').value;
     const content = document.querySelector('#document-content').value;
@@ -24,7 +39,7 @@ function validateDocumentForm() {
     return false;
 }
 
-function drawGraph() {
+function drawGraph(initialCypher) {
     const config = {
         containerId: "viz",
         neo4j: {
@@ -44,7 +59,7 @@ function drawGraph() {
                 value: "weight"
             }
         },
-        initialCypher: "MATCH (n:Document) RETURN *"
+        initialCypher
     };
 
     neoViz = new NeoVis.default(config);

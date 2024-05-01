@@ -122,7 +122,6 @@ def search():
         },
         db="neo4j"
     )
-    print(results)
     return render_template('search.html', results=results)
 
 

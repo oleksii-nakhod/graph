@@ -15,7 +15,11 @@
     {% endfor %}
 </div>
 
+<div id="viz"></div>
+
 <script>
-    drawGraph()
+    const results = {{ results | tojson }};
+    console.log(results);
+    drawGraph("MATCH (doc:Document) WHERE id(doc) IN [" + results.map(item => item[0]).join(",") + "] RETURN doc")
 </script>
 {% endblock %}

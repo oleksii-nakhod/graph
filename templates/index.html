@@ -13,8 +13,10 @@
 <div id="alert-document" class="alert alert-warning d-none" role="alert">
     Please fill in the title and content.
 </div>
+  
+<div id="viz"></div>
 
 <script>
-    drawGraph();
+    drawGraph("MATCH (n:Document) RETURN *");
 </script>
 {% endblock %}
