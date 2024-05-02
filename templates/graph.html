@@ -1,0 +1,17 @@
+<div>
+    <h2 class="mt-5">Visualization</h2>
+    <div id="alert-graph-data-missing" class="alert alert-warning d-none" role="alert">
+        No graph data available.
+    </div>
+    <svg id="viz"></svg>
+</div>
+
+<script>
+    data = {{ data | tojson | safe }};
+    console.log(data);
+    if (data.graph.nodes.length > 0) {
+        drawGraph(data.graph.nodes, data.graph.links);
+    } else {
+        document.getElementById('alert-graph-data-missing').classList.remove('d-none');
+    }
+</script>

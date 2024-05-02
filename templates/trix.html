@@ -1,0 +1,30 @@
+<form id="form-document" onsubmit="return validateDocumentForm();">
+    <div class="mb-3">
+        <label for="input-document-title" class="fs-4">Title</label>
+        <input type="text" class="form-control form-control-lg"
+            id="input-document-title">
+    </div>
+    <div class="mb-3">
+        <label for="input-document-content" class="fs-4">Content</label>
+        <input id="input-trix" type="hidden" name="content">
+        <trix-editor input="input-trix" id="input-document-content"></trix-editor>
+    </div>
+    <div class="row">
+        <div class="col-12 col-md-4 mb-3"></div>
+        <button type="submit" class="btn btn-primary col-12 col-md-4 mb-3" id="btn-create-document"><i class="bi bi-floppy2-fill"></i> Save
+        </button>
+    </div>
+</form>
+
+<div id="alert-content-missing" class="alert alert-warning d-none" role="alert">
+    Please fill in the title and content.
+</div>
+
+<div id="alert-submission-success" class="alert alert-success d-none" role="alert">
+    Document saved successfully! Redirecting to the previous page...
+</div>
+
+<script>
+    const inputDocumentTitle = document.querySelector('#input-document-title');
+    const inputDocumentContent = document.querySelector('#input-document-content');
+</script>

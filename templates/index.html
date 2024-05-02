@@ -3,10 +3,6 @@
 
 {% include 'searchbar.html' %}
 
-<svg id="viz"></svg>
-
-<script>
-    drawGraph({{ nodes | tojson | safe }}, {{ links | tojson | safe }});
-</script>
+{% include 'graph.html' %}
 
 {% endblock %}

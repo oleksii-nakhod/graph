@@ -1,12 +1,10 @@
 <form autocomplete="off" onsubmit="return validateSearchForm()" id="form-search" name="form-search">
-    <div class="row">
-        <div class="col-12 col-md-8 mb-3">
-            <div class="form-floating">
-                <input type="text" class="form-control" id="input-query" placeholder="Enter a search term">
-                <label for="input-query">Search query</label>
-            </div>
-        </div>
-        <button type="submit" class="btn btn-primary col-12 col-md-4 mb-3" id="btn-get-matches">Search</button>
+    <div class="input-group mb-3">
+        <span class="input-group-text" id="basic-addon1">
+            <i class="bi bi-search"></i>
+        </span>
+        <input type="text" class="form-control" id="input-query" placeholder="What's on your mind?" aria-label="Search" aria-describedby="basic-addon1">
+        <button type="submit" class="btn btn-primary" id="btn-get-matches">Search</button>
     </div>
 </form>
 

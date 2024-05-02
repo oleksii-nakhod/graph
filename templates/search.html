@@ -4,29 +4,28 @@
 
 {% include 'searchbar.html' %}
 
-<div class="container">
-    <h2>Search Results</h2>
-    {% if nodes %}
-        {% for node in nodes %}
-            <div class="card my-3">
-                <div class="card-body">
-                    <h5 class="card-title">{{ node.title }}</h5>
-                    <p class="card-text">{{ node.content | safe }}</p>
-                    <footer class="blockquote-footer">Similarity Score: {{ node.score }}</footer>
+<h2>Search Results</h2>
+
+{% if nodes %}
+    {% for node in nodes %}
+        <div class="card my-3">
+            <div class="card-body">
+                <a href="/docs/{{ node.id }}" class="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"><h5 class="card-title">{{ node.title }}</h5></a>
+                <p class="card-text">{{ node.content | safe }}</p>
+                <div class="progress" style="max-width: 200px; max-height: 25px;">
+                    <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="1" data-score="{{ node.score }}"></div>
                 </div>
             </div>
-        {% endfor %}
-    {% else %}
-        <p>No results found.</p>
-    {% endif %}
-</div>
+        </div>
+    {% endfor %}
+{% else %}
+    <div id="alert-search-data-missing" class="alert alert-warning" role="alert">
+        No results found.
+    </div>
+{% endif %}
 
-<svg id="viz"></svg>
+{% include 'graph.html' %}
 
 <script src="{{ url_for('static',filename='search.js') }}"></script>
-
-<script>
-    drawGraph({{ nodes | tojson | safe }}, {{ links | tojson | safe }});
-</script>
 
 {% endblock %}

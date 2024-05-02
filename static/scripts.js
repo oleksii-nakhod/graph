@@ -87,17 +87,18 @@ function validateLoginForm() {
 
 
 function validateDocumentForm() {
-    const title = document.querySelector('#document-title').value;
-    const content = document.querySelector('#document-content').value;
+    const title = document.querySelector('#input-document-title').value;
+    const content = document.querySelector('#input-document-content').value;
     
-    const alertDocument = document.querySelector('#alert-document');
+    const alertContentMissing = document.querySelector('#alert-content-missing');
+    const alertSubmissionSuccess = document.querySelector('#alert-submission-success');
 
     if (!title || !content) {
-        alertDocument.classList.remove('d-none');
+        alertContentMissing.classList.remove('d-none');
         return false;
     }
 
-    alertDocument.classList.add('d-none');
+    alertContentMissing.classList.add('d-none');
 
     fetch(`${url_create_document}`, {
         method: 'POST',
@@ -109,6 +110,18 @@ function validateDocumentForm() {
             content: content
         })
     })
+    .then(response => {
+        if (response.ok) {
+            alertSubmissionSuccess.classList.remove('d-none');
+            setInterval(() => {
+                history.back();
+            }, 2000);
+        } else {
+            return response.json().then(data => {
+                throw new Error(data.msg);
+            });
+        }
+    })
     return false;
 }
 
@@ -116,7 +129,7 @@ function logOut() {
     fetch(url_logout, {
         method: 'POST'
     })
-        .then(() => {
-            location.reload();
-        });
+    .then(() => {
+        location.reload();
+    });
 }

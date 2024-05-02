@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from neo4j import GraphDatabase
 import bcrypt
 import itertools
+from bs4 import BeautifulSoup
 
 load_dotenv()
 
@@ -32,10 +33,6 @@ cache = Cache(
 openai_client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY")
 )
-
-URI = os.environ.get("NEO4J_URI")
-ADMIN_AUTH = (os.environ.get("NEO4J_ADMIN_USERNAME"), os.environ.get("NEO4J_ADMIN_PASSWORD"))
-READER_AUTH = (os.environ.get("NEO4J_READER_USERNAME"), os.environ.get("NEO4J_READER_PASSWORD"))
 
 class Neo4jConnection:
     
@@ -66,6 +63,13 @@ class Neo4jConnection:
                 session.close()
         return response
 
+URI = os.environ.get("NEO4J_URI")
+ADMIN_AUTH = (os.environ.get("NEO4J_ADMIN_USERNAME"), os.environ.get("NEO4J_ADMIN_PASSWORD"))
+READER_AUTH = (os.environ.get("NEO4J_READER_USERNAME"), os.environ.get("NEO4J_READER_PASSWORD"))
+conn = Neo4jConnection(
+    uri=URI, 
+    auth=ADMIN_AUTH           
+)
 
 def create_openai_embedding(input):
     response = openai_client.embeddings.create(
@@ -73,6 +77,10 @@ def create_openai_embedding(input):
         model="text-embedding-3-small"
     )
     return response
+
+def html_to_text(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    return soup.get_text()
 
 def hash_password(password):
     salt = bcrypt.gensalt()
@@ -99,10 +107,7 @@ def convert_results_to_nodes_and_links(results):
 
 def init_database():
     
-    conn = Neo4jConnection(
-        uri=URI, 
-        auth=ADMIN_AUTH           
-    )
+
 
     init_queries = {
         "create_vector_index_query": """
@@ -113,12 +118,6 @@ def init_database():
                 `vector.dimensions`: 1536,
                 `vector.similarity_function`: 'cosine'
             }}
-        """,
-        "create_anonymous_user_query": """
-            CREATE USER anonymous IF NOT EXISTS SET PASSWORD 'password' CHANGE NOT REQUIRED
-        """,
-        "grant_read_access_query": """
-            GRANT ROLE reader TO anonymous
         """
     }
 
@@ -131,16 +130,45 @@ init_database()
 
 @app.route('/', methods=['GET'])
 def index():
-    conn = Neo4jConnection(uri=URI, auth=READER_AUTH)
     query = """
-        MATCH (d:Document)
-        RETURN elementId(d) AS id, d.title AS title, d.content AS content, 1 AS score
-        LIMIT 5
+    MATCH (u:User)-[r:CREATED]->(d:Document)
+    RETURN u.username AS user_name, elementId(u) AS user_id,
+           COLLECT({doc_id: elementId(d), doc_title: d.title, doc_content: d.content, rel_type: type(r)}) AS documents
     """
     results = conn.query(query=query, db="neo4j")
-    nodes, links = convert_results_to_nodes_and_links(results)
-    
-    return render_template('index.html', nodes=nodes, links=links)
+
+    nodes = []
+    links = []
+    result_data = []
+
+    node_ids = set()
+
+    for result in results:
+        if result['user_id'] not in node_ids:
+            nodes.append({"title": result['user_name'], "id": result['user_id'], "label": "User"})
+            node_ids.add(result['user_id'])
+
+        for doc in result['documents']:
+            if doc['doc_id'] not in node_ids:
+                nodes.append({"title": doc['doc_title'], "id": doc['doc_id'], "label": "Document"})
+                node_ids.add(doc['doc_id'])
+            links.append({"source": doc['doc_id'], "target": result['user_id']})
+            result_data.append({
+                "title": doc['doc_title'],
+                "id": doc['doc_id'],
+                "content": doc['doc_content'],
+                "score": 1
+            })
+
+    response_data = {
+        "graph": {
+            "nodes": nodes,
+            "links": links
+        },
+        "results": result_data
+    }
+
+    return render_template('index.html', data=response_data)
 
 
 @app.route('/search', methods=['GET'])
@@ -149,7 +177,6 @@ def search():
     if not query:
         return redirect(url_for('index'))
     
-    conn = Neo4jConnection(uri=URI, auth=READER_AUTH)
     openai_response = create_openai_embedding(query)
     
     neo4j_query = """
@@ -185,19 +212,23 @@ def create_document():
     content = data['content']
     created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    response = create_openai_embedding(f"{title} {content}")
+    response = create_openai_embedding(f"{title} {html_to_text(content)}")
 
     query = """
+        MATCH (u:User) WHERE elementId(u) = $user_id
         CREATE (a:Document {title: $title, content: $content, embedding: $embedding, created_at: $created_at})
+        CREATE (u)-[:CREATED]->(a)
         RETURN a
     """
-    conn = Neo4jConnection(
-        uri=URI, 
-        auth=ADMIN_AUTH           
-    )
     conn.query(
         query=query,
-        parameters={'title': title, 'content': content, 'embedding': response.data[0].embedding, 'created_at': created_at},
+        parameters={
+            'user_id': session['id'],
+            'title': title,
+            'content': content,
+            'embedding': response.data[0].embedding,
+            'created_at': created_at
+        },
         db="neo4j"
     )
     
@@ -212,6 +243,20 @@ def new():
     return render_template('new.html')
 
 
+@app.route('/docs/<document_id>', methods=['GET'])
+def view_document(document_id):
+    query = """
+        MATCH (d:Document)
+        WHERE elementId(d) = $document_id
+        RETURN d.title AS title, d.content AS content
+    """
+    results = conn.query(query=query, parameters={'document_id': document_id}, db="neo4j")
+    if not results:
+        return redirect(url_for('index'))
+    
+    return render_template('docs.html', title=results[0]['title'], content=results[0]['content'])
+
+
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username')
@@ -222,10 +267,6 @@ def login():
         MATCH (u:User {username: $username})
         RETURN elementId(u) AS id, u.username AS username, u.password AS password
     """
-    conn = Neo4jConnection(
-        uri=URI, 
-        auth=READER_AUTH           
-    )
     existing_user = conn.query(
         query=existing_user_query,
         parameters={'username': username},
@@ -255,10 +296,6 @@ def signup():
         MATCH (u:User {username: $username})
         RETURN count(u) > 0 AS exists
     """
-    conn = Neo4jConnection(
-        uri=URI, 
-        auth=READER_AUTH           
-    )
     existing_user = conn.query(
         query=existing_user_query,
         parameters={'username': username},
@@ -273,10 +310,6 @@ def signup():
         RETURN elementId(u) AS id, u.username AS username
     """
     
-    conn = Neo4jConnection(
-        uri=URI, 
-        auth=ADMIN_AUTH           
-    )
     user = conn.query(
         query=query,
         parameters={

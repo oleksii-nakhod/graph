@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>View Document</h2>
+
+{% include 'trix.html' %}
+
+<script>
+    inputDocumentTitle.value = '{{ title }}';
+    inputDocumentContent.value = '{{ content | safe }}';
+    inputDocumentTitle.readOnly = true;
+    document.querySelector('trix-editor').editor.element.setAttribute('contentEditable', false)
+</script>
+
+<script src="{{ url_for('static',filename='docs.js') }}"></script>
+
+{% endblock %}
