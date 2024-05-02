@@ -55,9 +55,7 @@ h4 {
 
 #viz {
     width: 100%;
-    height: 80vh;
-    border: 1px solid lightgray;
-    font: 22pt arial;
+    margin: auto;
 }
 
 #logo {

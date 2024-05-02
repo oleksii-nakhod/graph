@@ -10,6 +10,7 @@ from openai import OpenAI
 from datetime import datetime, timedelta
 from neo4j import GraphDatabase
 import bcrypt
+import itertools
 
 load_dotenv()
 
@@ -33,7 +34,8 @@ openai_client = OpenAI(
 )
 
 URI = os.environ.get("NEO4J_URI")
-AUTH = (os.environ.get("NEO4J_USERNAME"), os.environ.get("NEO4J_PASSWORD"))
+ADMIN_AUTH = (os.environ.get("NEO4J_ADMIN_USERNAME"), os.environ.get("NEO4J_ADMIN_PASSWORD"))
+READER_AUTH = (os.environ.get("NEO4J_READER_USERNAME"), os.environ.get("NEO4J_READER_PASSWORD"))
 
 class Neo4jConnection:
     
@@ -87,36 +89,58 @@ def verify_password(input_password, hashed_password):
     return bcrypt.checkpw(input_password, hashed_password)
 
 
+def convert_results_to_nodes_and_links(results):
+    nodes = [{'id': result['id'], 'title': result['title'], 'content': result['content'], 'score': result['score']} for result in results]
+    links = []
+    for combination in itertools.combinations(nodes, 2):
+        links.append({'source': combination[0]['id'], 'target': combination[1]['id']})
+    return nodes, links
 
-conn = Neo4jConnection(
-    uri=URI, 
-    auth=AUTH           
-)
 
-init_queries = {
-    "create_vector_index_query": """
-        CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
-        FOR (doc:Document)
-        ON (doc.embedding)
-        OPTIONS {indexConfig: {
-            `vector.dimensions`: 1536,
-            `vector.similarity_function`: 'cosine'
-        }}
-    """,
-    "create_anonymous_user_query": """
-        CREATE USER anonymous IF NOT EXISTS SET PASSWORD 'password' CHANGE NOT REQUIRED
-    """,
-    "grant_read_access_query": """
-        GRANT ROLE reader TO anonymous
-    """
-}
+def init_database():
+    
+    conn = Neo4jConnection(
+        uri=URI, 
+        auth=ADMIN_AUTH           
+    )
 
-for query in init_queries.values():
-    conn.query(query=query)
+    init_queries = {
+        "create_vector_index_query": """
+            CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
+            FOR (doc:Document)
+            ON (doc.embedding)
+            OPTIONS {indexConfig: {
+                `vector.dimensions`: 1536,
+                `vector.similarity_function`: 'cosine'
+            }}
+        """,
+        "create_anonymous_user_query": """
+            CREATE USER anonymous IF NOT EXISTS SET PASSWORD 'password' CHANGE NOT REQUIRED
+        """,
+        "grant_read_access_query": """
+            GRANT ROLE reader TO anonymous
+        """
+    }
+
+    for query in init_queries.values():
+        conn.query(query=query)
+
+
+init_database()
+
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    conn = Neo4jConnection(uri=URI, auth=READER_AUTH)
+    query = """
+        MATCH (d:Document)
+        RETURN elementId(d) AS id, d.title AS title, d.content AS content, 1 AS score
+        LIMIT 5
+    """
+    results = conn.query(query=query, db="neo4j")
+    nodes, links = convert_results_to_nodes_and_links(results)
+    
+    return render_template('index.html', nodes=nodes, links=links)
 
 
 @app.route('/search', methods=['GET'])
@@ -125,11 +149,12 @@ def search():
     if not query:
         return redirect(url_for('index'))
     
+    conn = Neo4jConnection(uri=URI, auth=READER_AUTH)
     openai_response = create_openai_embedding(query)
     
     neo4j_query = """
         CALL db.index.vector.queryNodes('document-embeddings', $num_results, $embedding) YIELD node AS similarDocument, score
-        RETURN elementId(similarDocument) AS nodeId,similarDocument.title AS title, similarDocument.content AS content, score
+        RETURN elementId(similarDocument) AS id, similarDocument.title AS title, similarDocument.content AS content, score
     """
     results = conn.query(
         query=neo4j_query,
@@ -139,7 +164,11 @@ def search():
         },
         db="neo4j"
     )
-    return render_template('search.html', results=results)
+    nodes, links = convert_results_to_nodes_and_links(results)
+    
+    
+    return render_template('search.html', nodes=nodes, links=links)
+
 
 
 @app.route('/create', methods=['POST'])
@@ -162,6 +191,10 @@ def create_document():
         CREATE (a:Document {title: $title, content: $content, embedding: $embedding, created_at: $created_at})
         RETURN a
     """
+    conn = Neo4jConnection(
+        uri=URI, 
+        auth=ADMIN_AUTH           
+    )
     conn.query(
         query=query,
         parameters={'title': title, 'content': content, 'embedding': response.data[0].embedding, 'created_at': created_at},
@@ -169,6 +202,14 @@ def create_document():
     )
     
     return jsonify({'message': 'Document created successfully'}), 201
+
+
+@app.route('/new', methods=['GET'])
+def new():
+    if not 'logged_in' in session or not session['logged_in']:
+        return redirect(url_for('index'))
+    
+    return render_template('new.html')
 
 
 @app.route('/login', methods=['POST'])
@@ -181,6 +222,10 @@ def login():
         MATCH (u:User {username: $username})
         RETURN elementId(u) AS id, u.username AS username, u.password AS password
     """
+    conn = Neo4jConnection(
+        uri=URI, 
+        auth=READER_AUTH           
+    )
     existing_user = conn.query(
         query=existing_user_query,
         parameters={'username': username},
@@ -198,6 +243,7 @@ def login():
     session['username'] = existing_user[0][1]
     return jsonify({'message': 'Login successful'}), 200
 
+
 @app.route('/signup', methods=['POST'])
 def signup():
     username = request.json.get('username')
@@ -209,6 +255,10 @@ def signup():
         MATCH (u:User {username: $username})
         RETURN count(u) > 0 AS exists
     """
+    conn = Neo4jConnection(
+        uri=URI, 
+        auth=READER_AUTH           
+    )
     existing_user = conn.query(
         query=existing_user_query,
         parameters={'username': username},
@@ -218,11 +268,15 @@ def signup():
         return jsonify({'error': 'Username already exists'}), 409
     
     hashed_password = hash_password(password)
-    print(hashed_password)
     query = """
         CREATE (u:User {username: $username, password: $password})
         RETURN elementId(u) AS id, u.username AS username
     """
+    
+    conn = Neo4jConnection(
+        uri=URI, 
+        auth=ADMIN_AUTH           
+    )
     user = conn.query(
         query=query,
         parameters={

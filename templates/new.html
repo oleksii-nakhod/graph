@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<form id="form-document" onsubmit="return validateDocumentForm()">
+    <input type="text" class="form-control" id="document-title" placeholder="Enter a title">
+    <input id="document-content" type="hidden" name="content">
+    <trix-editor input="document-content"></trix-editor>
+    <div class="row">
+        <div class="col-12 col-md-4 mb-3"></div>
+        <button type="submit" class="btn btn-primary col-12 col-md-4 mb-3" id="btn-create-document">Submit</button>
+    </div>
+</form>
+<div id="alert-document" class="alert alert-warning d-none" role="alert">
+    Please fill in the title and content.
+</div>
+
+{% endblock %}
