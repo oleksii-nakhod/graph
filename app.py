@@ -97,18 +97,43 @@ def verify_password(input_password, hashed_password):
     return bcrypt.checkpw(input_password, hashed_password)
 
 
-def convert_results_to_nodes_and_links(results):
-    nodes = [{'id': result['id'], 'title': result['title'], 'content': result['content'], 'score': result['score']} for result in results]
+def convert_results(results):
+    nodes = []
     links = []
-    for combination in itertools.combinations(nodes, 2):
-        links.append({'source': combination[0]['id'], 'target': combination[1]['id']})
-    return nodes, links
+    result_data = []
+
+    node_ids = set()
+
+    for result in results:
+        if result['user_id'] not in node_ids:
+            nodes.append({"title": result['user_name'], "id": result['user_id'], "label": "User"})
+            node_ids.add(result['user_id'])
+
+        for doc in result['documents']:
+            if doc['doc_id'] not in node_ids:
+                nodes.append({"title": doc['doc_title'], "id": doc['doc_id'], "label": "Document"})
+                node_ids.add(doc['doc_id'])
+            links.append({"source": doc['doc_id'], "target": result['user_id']})
+            result_data.append({
+                "title": doc['doc_title'],
+                "id": doc['doc_id'],
+                "content": doc['doc_content'],
+                "score": doc.get('score', 1),
+            })
+
+    data = {
+        "graph": {
+            "nodes": nodes,
+            "links": links
+        },
+        "results": result_data
+    }
+    
+    return data
+
 
 
 def init_database():
-    
-
-
     init_queries = {
         "create_vector_index_query": """
             CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
@@ -136,38 +161,7 @@ def index():
            COLLECT({doc_id: elementId(d), doc_title: d.title, doc_content: d.content, rel_type: type(r)}) AS documents
     """
     results = conn.query(query=query, db="neo4j")
-
-    nodes = []
-    links = []
-    result_data = []
-
-    node_ids = set()
-
-    for result in results:
-        if result['user_id'] not in node_ids:
-            nodes.append({"title": result['user_name'], "id": result['user_id'], "label": "User"})
-            node_ids.add(result['user_id'])
-
-        for doc in result['documents']:
-            if doc['doc_id'] not in node_ids:
-                nodes.append({"title": doc['doc_title'], "id": doc['doc_id'], "label": "Document"})
-                node_ids.add(doc['doc_id'])
-            links.append({"source": doc['doc_id'], "target": result['user_id']})
-            result_data.append({
-                "title": doc['doc_title'],
-                "id": doc['doc_id'],
-                "content": doc['doc_content'],
-                "score": 1
-            })
-
-    response_data = {
-        "graph": {
-            "nodes": nodes,
-            "links": links
-        },
-        "results": result_data
-    }
-
+    response_data = convert_results(results)
     return render_template('index.html', data=response_data)
 
 
@@ -181,8 +175,20 @@ def search():
     
     neo4j_query = """
         CALL db.index.vector.queryNodes('document-embeddings', $num_results, $embedding) YIELD node AS similarDocument, score
-        RETURN elementId(similarDocument) AS id, similarDocument.title AS title, similarDocument.content AS content, score
+        MATCH (u:User)-[r:CREATED]->(d:Document)
+        WHERE d = similarDocument
+        WITH u, d, r, score
+        ORDER BY score DESC
+        WITH u, COLLECT({
+            doc_id: elementId(d), 
+            doc_title: d.title, 
+            doc_content: d.content, 
+            rel_type: type(r), 
+            score: score
+        }) AS documents
+        RETURN u.username AS user_name, elementId(u) AS user_id, documents
     """
+    
     results = conn.query(
         query=neo4j_query,
         parameters={
@@ -191,22 +197,21 @@ def search():
         },
         db="neo4j"
     )
-    nodes, links = convert_results_to_nodes_and_links(results)
-    
-    
-    return render_template('search.html', nodes=nodes, links=links)
+    print("RESRESRESRES", results)
+    data = convert_results(results)
+    return render_template('search.html', data=data)
 
 
 
 @app.route('/create', methods=['POST'])
 def create_document():
     if not 'logged_in' in session or not session['logged_in']:
-        return jsonify({'error': 'You do not have permission to create documents'}), 403
+        return jsonify({'message': 'You do not have permission to create documents'}), 403
     
     data = request.json
 
     if not data or 'title' not in data or 'content' not in data:
-        return jsonify({'error': 'Title and content are required'}), 400
+        return jsonify({'message': 'Title and content are required'}), 400
 
     title = data['title']
     content = data['content']
@@ -262,7 +267,7 @@ def login():
     username = request.json.get('username')
     password = request.json.get('password')
     if not username or not password:
-        return jsonify({'error': 'Username and password are required'}), 400
+        return jsonify({'message': 'Username and password are required'}), 400
     existing_user_query = """
         MATCH (u:User {username: $username})
         RETURN elementId(u) AS id, u.username AS username, u.password AS password
@@ -273,11 +278,11 @@ def login():
         db="neo4j"
     )
     if not existing_user:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({'message': 'User not found'}), 404
     
     hashed_password = existing_user[0][2]
     if not verify_password(password, hashed_password):
-        return jsonify({'error': 'Incorrect password'}), 401
+        return jsonify({'message': 'Incorrect password'}), 401
 
     session['logged_in'] = True
     session['id'] = existing_user[0][0]
@@ -290,7 +295,7 @@ def signup():
     username = request.json.get('username')
     password = request.json.get('password')
     if not username or not password:
-        return jsonify({'error': 'Username and password are required'}), 400
+        return jsonify({'message': 'Username and password are required'}), 400
     
     existing_user_query = """
         MATCH (u:User {username: $username})
@@ -302,7 +307,7 @@ def signup():
         db="neo4j"
     )[0][0]
     if existing_user:
-        return jsonify({'error': 'Username already exists'}), 409
+        return jsonify({'message': 'Username already exists'}), 409
     
     hashed_password = hash_password(password)
     query = """

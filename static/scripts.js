@@ -71,13 +71,13 @@ function validateLoginForm() {
                 location.reload();
             } else {
                 return response.json().then(data => {
-                    throw new Error(data.msg);
+                    throw new Error(data.message);
                 });
             }
         })
         .catch(error => {
             const errorMessage = document.getElementById('message-login-error');
-            errorMessage.textContent = error.message;
+            errorMessage.textContent = error;
             errorMessage.style.display = 'block';
         });
 
@@ -133,3 +133,23 @@ function logOut() {
         location.reload();
     });
 }
+
+
+const loginLink = document.getElementById('link-login-modal');
+const signupLink = document.getElementById('link-signup-modal');
+const loginModal = new bootstrap.Modal('#modal-login', {
+    keyboard: false
+})
+const signupModal = new bootstrap.Modal('#modal-signup', {
+    keyboard: false
+})
+
+signupLink.addEventListener('click', function () {
+    loginModal.hide();
+    signupModal.show();
+});
+
+loginLink.addEventListener('click', function () {
+    signupModal.hide();
+    loginModal.show();
+});

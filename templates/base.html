@@ -23,14 +23,15 @@
         
         function drawGraph(nodes, links) {
             const width = document.querySelector('svg').getBoundingClientRect().width;
+            const height = window.innerHeight
 
             const svg = d3.select('svg')
                 .attr('width', '100%')
 
             const simulation = d3.forceSimulation(nodes)
-                .force('link', d3.forceLink(links).id(d => d.id))
-                .force('charge', d3.forceManyBody().strength(-2000))
-                .force('center', d3.forceCenter(svg.node().getBoundingClientRect().width / 2, window.innerHeight / 2));
+                .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(svg.node().getBoundingClientRect().width / 2, height / 2));
             
             updateDimensions();
 
@@ -59,7 +60,6 @@
 
             function updateDimensions() {
                 const width = svg.node().getBoundingClientRect().width;
-                const height = 600
                 svg.attr('height', height);
                 simulation.force('center', d3.forceCenter(width / 2, height / 2));
                 simulation.alpha(0.3).restart();
@@ -165,7 +165,7 @@
                     <div class="alert alert-warning collapse" id="message-signup-error">
                         Error
                     </div>
-                    <button type="submit" class="btn btn-primary w-100" id="btn-signup">Sign up</button>
+                    <button type="submit" class="btn btn-primary w-100 mb-3" id="btn-signup">Sign up</button>
                     <p>Already have an account? <a id="link-login-modal" href="javascript:void(0)">Log in</a></p>
                 </form>
             </div>
@@ -195,7 +195,7 @@
                     <div class="alert alert-success collapse" id="message-login-success">
                         Success
                     </div>
-                    <button type="submit" class="btn btn-primary w-100" id="btn-login">Log in</button>
+                    <button type="submit" class="btn btn-primary w-100 mb-3" id="btn-login">Log in</button>
                     <p>Don't have an account? <a id="link-signup-modal" href="javascript:void(0)">Sign up</a></p>
                 </form>
             </div>

@@ -6,8 +6,8 @@
 
 <h2>Search Results</h2>
 
-{% if nodes %}
-    {% for node in nodes %}
+{% if data.results %}
+    {% for node in data.results %}
         <div class="card my-3">
             <div class="card-body">
                 <a href="/docs/{{ node.id }}" class="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"><h5 class="card-title">{{ node.title }}</h5></a>
