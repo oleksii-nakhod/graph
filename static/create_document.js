@@ -1,3 +1,12 @@
+btnGoCreate = document.querySelector('#btn-go-create-document');
+btnGoCreate.classList.add('d-none');
+
+btnDelete.classList.add('d-none');
+btnCancel.classList.remove('d-none');
+btnEdit.classList.add('d-none');
+btnSave.classList.add('d-none');
+btnCreate.classList.remove('d-none');
+
 function generateRandomPlaceholder() {
     const placeholders = [
         {

@@ -10,9 +10,10 @@
     inputDocumentTitle.value = '{{ data.title }}';
     inputDocumentContent.value = '{{ data.content | safe }}';
     inputDocumentTitle.readOnly = true;
-    document.querySelector('trix-editor').editor.element.setAttribute('contentEditable', false)
+    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    formDocument.setAttribute('data-document-id', '{{ data.id }}')
 </script>
 
-<script src="{{ url_for('static',filename='docs.js') }}"></script>
+<script src="{{ url_for('static',filename='get_document.js') }}"></script>
 
 {% endblock %}

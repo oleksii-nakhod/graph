@@ -16,10 +16,12 @@
     <script src="https://unpkg.com/neovis.js@2.1.0"></script>
     
     <script>
-        const url_signup = {{ url_for("signup")|tojson }}
-        const url_login = {{ url_for("login")|tojson }}
-        const url_logout = {{ url_for("logout")|tojson }}
-        const url_create_document = {{ url_for("create_document")|tojson }}
+        const url_signup = {{ url_for("api_signup")|tojson }}
+        const url_login = {{ url_for("api_login")|tojson }}
+        const url_logout = {{ url_for("api_logout")|tojson }}
+        const url_list_documents = {{ url_for("api_list_documents")|tojson }}
+        const url_create_document = {{ url_for("api_create_document")|tojson }}
+        const url_update_document = {{ url_for("api_update_document", document_id="DOCUMENT_ID")|tojson }}
         
         function drawGraph(nodes, links) {
             const width = document.querySelector('svg').getBoundingClientRect().width;

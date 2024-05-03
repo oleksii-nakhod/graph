@@ -175,22 +175,25 @@ def search():
 
 
 @app.route('/new', methods=['GET'])
-def new():
+def create_document():
     if not 'logged_in' in session or not session['logged_in']:
         return redirect(url_for('index'))
     
-    return render_template('new.html')
+    return render_template('create_document.html')
 
 
 @app.route('/docs/<document_id>', methods=['GET'])
-def view_document(document_id):
-    document = get_document(document_id)
-    return render_template('docs.html', data=document)
+def get_document(document_id):
+    document = get_document_data(document_id)
+    if document is None:
+        return redirect(url_for('index'))
+    return render_template('get_document.html', data=document)
 
 
 @app.route('/api/docs', methods=['GET'])
-def api_get_documents():
-    data = get_documents_data(request.args.get('q'))
+def api_list_documents():
+    query = request.args.get('q')
+    data = get_documents_data(query)
     if data is None:
         return jsonify({'message': 'No data found'}), 404
     return jsonify(data)
@@ -231,29 +234,30 @@ def get_documents_data(query):
 
 @app.route('/api/docs/<document_id>', methods=['GET'])
 def api_get_document(document_id):
-    document = get_document(document_id)
+    document = get_document_data(document_id)
     if document is None:
         return jsonify({'message': 'Document not found'}), 404
     return jsonify(document)
 
 
-def get_document(document_id):
+def get_document_data(document_id):
     query = """
         MATCH (d:Document)
         WHERE elementId(d) = $document_id
-        RETURN d.title AS title, d.content AS content
+        RETURN elementId(d) AS id, d.title AS title, d.content AS content
     """
     results = conn.query(query=query, parameters={'document_id': document_id}, db="neo4j")
     if not results:
         return None
     return {
+        'id': results[0]['id'],
         'title': results[0]['title'],
         'content': results[0]['content']
     }
 
 
 @app.route('/api/docs', methods=['POST'])
-def create_document():
+def api_create_document():
     if not 'logged_in' in session or not session['logged_in']:
         return jsonify({'message': 'You do not have permission to create documents'}), 403
     
@@ -290,16 +294,14 @@ def create_document():
 
 
 @app.route('/api/docs/<document_id>', methods=['PUT'])
-def update_document(document_id):
-    print("UPDATING DOCUMENT")
+def api_update_document(document_id):
     if not 'logged_in' in session or not session['logged_in']:
         return jsonify({'message': 'You do not have permission to update documents'}), 403
     
     data = request.json
-    if not data or 'id' not in data or 'title' not in data or 'content' not in data:
-        return jsonify({'message': 'ID, title and content are required'}), 400
+    if not data or 'title' not in data or 'content' not in data:
+        return jsonify({'message': 'Title and content are required'}), 400
     
-    document_id = data['id']
     title = data['title']
     content = data['content']
     
@@ -310,7 +312,7 @@ def update_document(document_id):
         SET a.title = $title, a.content = $content, a.embedding = $embedding
         RETURN a
     """
-    conn.query(
+    result = conn.query(
         query=query,
         parameters={
             'document_id': document_id,
@@ -321,11 +323,14 @@ def update_document(document_id):
         db="neo4j"
     )
     
+    if not result:
+        return jsonify({'message': 'Document not found'}), 404
+    
     return jsonify({'message': 'Document updated successfully'}), 200
 
 
 @app.route('/api/login', methods=['POST'])
-def login():
+def api_login():
     username = request.json.get('username')
     password = request.json.get('password')
     if not username or not password:
@@ -353,7 +358,7 @@ def login():
 
 
 @app.route('/api/signup', methods=['POST'])
-def signup():
+def api_signup():
     username = request.json.get('username')
     password = request.json.get('password')
     if not username or not password:
@@ -392,7 +397,7 @@ def signup():
 
 
 @app.route('/api/logout', methods=['POST'])
-def logout():
+def api_logout():
     if not 'logged_in' in session or not session['logged_in']:
         return jsonify({'message': 'You are not logged in'}), 401
     session.clear()

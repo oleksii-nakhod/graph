@@ -1,12 +1,13 @@
+const formDocument = document.querySelector('#form-document');
 const inputDocumentTitle = document.querySelector('#input-document-title');
 const inputDocumentContent = document.querySelector('#input-document-content');
+const alertSubmissionSuccess = document.querySelector('#alert-submission-success');
 
 function validateDocumentForm() {
     const title = document.querySelector('#input-document-title').value;
     const content = document.querySelector('#input-document-content').value;
 
     const alertContentMissing = document.querySelector('#alert-content-missing');
-    const alertSubmissionSuccess = document.querySelector('#alert-submission-success');
 
     if (!title || !content) {
         alertContentMissing.classList.remove('d-none');
@@ -51,11 +52,13 @@ function createDocument() {
         });
 }
 
-function updateDocument(documentId) {
+function updateDocument(documentId, title, content) {
     if (!validateDocumentForm()) {
         return false;
     }
-    fetch(`${url_update_document}/${documentId}`, {
+    url = url_update_document.replace('DOCUMENT_ID', documentId);
+    console.log(url);
+    fetch(`${url}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
@@ -69,7 +72,7 @@ function updateDocument(documentId) {
             if (response.ok) {
                 alertSubmissionSuccess.classList.remove('d-none');
                 setInterval(() => {
-                    history.back();
+                    location.href = '/'
                 }, 2000);
             } else {
                 return response.json().then(data => {
@@ -109,9 +112,16 @@ btnEdit.addEventListener('click', function() {
 btnSave.addEventListener('click', function() {
     inputDocumentTitle.setAttribute('readonly', true);
     inputDocumentContent.editor.element.setAttribute('contentEditable', false)
-    btnEdit.classList.remove('d-none');
+    btnEdit.classList.add('d-none');
+    btnDelete.classList.add('d-none');
     btnSave.classList.add('d-none');
     btnCancel.classList.add('d-none');
+    btnCreate.classList.add('d-none');
+
+    documentId = formDocument.getAttribute('data-document-id');
+    title = inputDocumentTitle.value;
+    content = inputDocumentContent.value;
+    updateDocument(documentId, title, content);
 });
 
 btnCreate.addEventListener('click', function() {
