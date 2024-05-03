@@ -1,8 +1,9 @@
 btnGoCreate = document.querySelector('#btn-go-create-document');
 btnGoCreate.classList.add('d-none');
 
+btnBack.classList.remove('d-none');
 btnDelete.classList.add('d-none');
-btnCancel.classList.remove('d-none');
+btnCancel.classList.add('d-none');
 btnEdit.classList.add('d-none');
 btnSave.classList.add('d-none');
 btnCreate.classList.remove('d-none');

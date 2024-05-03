@@ -9,7 +9,11 @@
         <input id="input-trix" type="hidden" name="content">
         <trix-editor input="input-trix" id="input-document-content"></trix-editor>
     </div>
-    <div class="row gap-3 justify-content-center">
+    
+    <div id="document-actions" class="row gap-3 justify-content-center">
+        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-back"><i class="bi bi-arrow-left"></i> Back
+        </button>
+        {% if 'logged_in' in session and session['logged_in'] %}
         <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-delete-document"><i class="bi bi-trash"></i> Delete
         </button>
         <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-cancel-document"><i class="bi bi-x-lg"></i> Discard
@@ -20,6 +24,7 @@
         </button>
         <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-create-document"><i class="bi bi-plus-lg"></i> Create
         </button>
+        {% endif %}
     </div>
 </form>
 
@@ -27,8 +32,12 @@
     Please fill in the title and content.
 </div>
 
+<div id="spinner-loading" class="spinner-border text-primary d-none" role="status">
+  <span class="sr-only">Loading...</span>
+</div>
+
 <div id="alert-submission-success" class="alert alert-success d-none" role="alert">
-    Document saved successfully! Redirecting...
+    Request successfully processed! Redirecting...
 </div>
 
 <div id="alert-submission-error" class="alert alert-danger d-none" role="alert">

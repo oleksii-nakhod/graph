@@ -39,7 +39,7 @@ function validateSignupForm() {
             } else {
                 document.getElementById('message-signup-success').style.display = 'none';
                 return response.json().then(data => {
-                    throw new Error(data.msg);
+                    throw new Error(data.message);
                 });
             }
         })

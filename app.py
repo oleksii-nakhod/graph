@@ -329,6 +329,29 @@ def api_update_document(document_id):
     return jsonify({'message': 'Document updated successfully'}), 200
 
 
+@app.route('/api/docs/<document_id>', methods=['DELETE'])
+def api_delete_document(document_id):
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to delete documents'}), 403
+    
+    query = """
+        MATCH (a:Document) WHERE elementId(a) = $document_id
+        WITH a
+        DETACH DELETE a
+        RETURN a
+    """
+    result = conn.query(
+        query=query,
+        parameters={'document_id': document_id},
+        db="neo4j"
+    )
+    
+    if not result:
+        return jsonify({'message': 'Document not found'}), 404
+    
+    return jsonify({'message': 'Document deleted successfully'}), 200
+
+
 @app.route('/api/login', methods=['POST'])
 def api_login():
     username = request.json.get('username')

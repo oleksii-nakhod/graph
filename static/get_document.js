@@ -1,3 +1,4 @@
+btnBack.classList.remove('d-none');
 btnDelete.classList.remove('d-none');
 btnCancel.classList.add('d-none');
 btnEdit.classList.remove('d-none');

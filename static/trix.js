@@ -1,7 +1,17 @@
+const btnBack = document.querySelector('#btn-back');
+const btnDelete = document.querySelector('#btn-delete-document');
+const btnCancel = document.querySelector('#btn-cancel-document');
+const btnEdit = document.querySelector('#btn-edit-document');
+const btnSave = document.querySelector('#btn-save-document');
+const btnCreate = document.querySelector('#btn-create-document');
+
+
 const formDocument = document.querySelector('#form-document');
 const inputDocumentTitle = document.querySelector('#input-document-title');
 const inputDocumentContent = document.querySelector('#input-document-content');
 const alertSubmissionSuccess = document.querySelector('#alert-submission-success');
+const spinnerLoading = document.querySelector('#spinner-loading');
+const documentActions = document.querySelector('#document-actions');
 
 function validateDocumentForm() {
     const title = document.querySelector('#input-document-title').value;
@@ -19,10 +29,12 @@ function validateDocumentForm() {
     return true;
 }
 
-function createDocument() {
+function createDocument(title, content) {
     if (!validateDocumentForm()) {
         return false;
     }
+
+    spinnerLoading.classList.remove('d-none');
     fetch(`${url_create_document}`, {
         method: 'POST',
         headers: {
@@ -41,7 +53,7 @@ function createDocument() {
                 }, 2000);
             } else {
                 return response.json().then(data => {
-                    throw new Error(data.msg);
+                    throw new Error(data.message);
                 });
             }
         })
@@ -49,6 +61,9 @@ function createDocument() {
             const alertSubmissionError = document.querySelector('#alert-submission-error');
             alertSubmissionError.textContent = error.message;
             alertSubmissionError.classList.remove('d-none');
+        })
+        .finally(() => {
+            spinnerLoading.classList.add('d-none');
         });
 }
 
@@ -57,7 +72,19 @@ function updateDocument(documentId, title, content) {
         return false;
     }
     url = url_update_document.replace('DOCUMENT_ID', documentId);
-    console.log(url);
+
+    inputDocumentTitle.setAttribute('readonly', true);
+    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+
+    btnBack.classList.add('d-none');
+    btnEdit.classList.add('d-none');
+    btnDelete.classList.add('d-none');
+    btnSave.classList.add('d-none');
+    btnCancel.classList.add('d-none');
+    btnCreate.classList.add('d-none');
+
+    spinnerLoading.classList.remove('d-none');
+
     fetch(`${url}`, {
         method: 'PUT',
         headers: {
@@ -76,7 +103,7 @@ function updateDocument(documentId, title, content) {
                 }, 2000);
             } else {
                 return response.json().then(data => {
-                    throw new Error(data.msg);
+                    throw new Error(data.message);
                 });
             }
         })
@@ -84,20 +111,74 @@ function updateDocument(documentId, title, content) {
             const alertSubmissionError = document.querySelector('#alert-submission-error');
             alertSubmissionError.textContent = error.message;
             alertSubmissionError.classList.remove('d-none');
+            inputDocumentTitle.setAttribute('readonly', false);
+            inputDocumentContent.editor.element.setAttribute('contentEditable', true)
+            btnCancel.classList.remove('d-none');
+            btnSave.classList.remove('d-none');
+        })
+        .finally(() => {
+            spinnerLoading.classList.add('d-none');
         });
 }
 
-btnDelete = document.querySelector('#btn-delete-document');
-btnCancel = document.querySelector('#btn-cancel-document');
-btnEdit = document.querySelector('#btn-edit-document');
-btnSave = document.querySelector('#btn-save-document');
-btnCreate = document.querySelector('#btn-create-document');
+function deleteDocument(documentId) {
+    url = url_delete_document.replace('DOCUMENT_ID', documentId);
+
+    btnBack.classList.add('d-none');
+    btnEdit.classList.add('d-none');
+    btnDelete.classList.add('d-none');
+    btnSave.classList.add('d-none');
+    btnCancel.classList.add('d-none');
+    btnCreate.classList.add('d-none');
+
+    spinnerLoading.classList.remove('d-none');
+    fetch(`${url}`, {
+        method: 'DELETE'
+    })
+        .then(response => {
+            if (response.ok) {
+                alertSubmissionSuccess.classList.remove('d-none');
+                setInterval(() => {
+                    location.href = '/'
+                }, 2000);
+            } else {
+                return response.json().then(data => {
+                    throw new Error(data.message);
+                });
+            }
+        })
+        .catch(error => {
+            const alertSubmissionError = document.querySelector('#alert-submission-error');
+            alertSubmissionError.textContent = error.message;
+            alertSubmissionError.classList.remove('d-none');
+            btnBack.classList.remove('d-none');
+            btnDelete.classList.remove('d-none');
+            btnEdit.classList.remove('d-none');
+        })
+        .finally(() => {
+            spinnerLoading.classList.add('d-none');
+        });
+}
+
+btnBack.addEventListener('click', function() {
+    history.back();
+});
 
 btnDelete.addEventListener('click', function() {
+    documentId = formDocument.getAttribute('data-document-id');
+    deleteDocument(documentId);
 });
 
 btnCancel.addEventListener('click', function() {
-    history.back();
+    btnSave.classList.add('d-none');
+    btnCancel.classList.add('d-none');
+    btnEdit.classList.remove('d-none');
+    btnDelete.classList.remove('d-none');
+    btnBack.classList.remove('d-none');
+    btnCreate.classList.add('d-none');
+
+    inputDocumentTitle.setAttribute('readonly', true);
+    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
 });
 
 btnEdit.addEventListener('click', function() {
@@ -105,19 +186,13 @@ btnEdit.addEventListener('click', function() {
     inputDocumentContent.editor.element.setAttribute('contentEditable', true)
     inputDocumentContent.focus();
     btnEdit.classList.add('d-none');
+    btnBack.classList.add('d-none');
+    btnDelete.classList.add('d-none');
     btnSave.classList.remove('d-none');
     btnCancel.classList.remove('d-none');
 });
 
 btnSave.addEventListener('click', function() {
-    inputDocumentTitle.setAttribute('readonly', true);
-    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
-    btnEdit.classList.add('d-none');
-    btnDelete.classList.add('d-none');
-    btnSave.classList.add('d-none');
-    btnCancel.classList.add('d-none');
-    btnCreate.classList.add('d-none');
-
     documentId = formDocument.getAttribute('data-document-id');
     title = inputDocumentTitle.value;
     content = inputDocumentContent.value;
@@ -129,8 +204,11 @@ btnCreate.addEventListener('click', function() {
     inputDocumentContent.editor.element.setAttribute('contentEditable', true)
     inputDocumentTitle.focus();
     btnCreate.classList.add('d-none');
-    btnSave.classList.remove('d-none');
-    btnCancel.classList.remove('d-none');
+    btnBack.classList.add('d-none');
+
+    title = inputDocumentTitle.value;
+    content = inputDocumentContent.value;
+    createDocument(title, content);
 });
 
 

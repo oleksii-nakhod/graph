@@ -22,6 +22,7 @@
         const url_list_documents = {{ url_for("api_list_documents")|tojson }}
         const url_create_document = {{ url_for("api_create_document")|tojson }}
         const url_update_document = {{ url_for("api_update_document", document_id="DOCUMENT_ID")|tojson }}
+        const url_delete_document = {{ url_for("api_delete_document", document_id="DOCUMENT_ID")|tojson }}
         
         function drawGraph(nodes, links) {
             const width = document.querySelector('svg').getBoundingClientRect().width;
