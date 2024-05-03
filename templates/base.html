@@ -13,7 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/5.0.0/imagesloaded.pkgd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-    <script src="https://unpkg.com/neovis.js@2.1.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
     
     <script>
         const url_signup = {{ url_for("api_signup")|tojson }}
@@ -23,6 +23,7 @@
         const url_create_document = {{ url_for("api_create_document")|tojson }}
         const url_update_document = {{ url_for("api_update_document", document_id="DOCUMENT_ID")|tojson }}
         const url_delete_document = {{ url_for("api_delete_document", document_id="DOCUMENT_ID")|tojson }}
+        const url_create_completion = {{ url_for("api_create_completion")|tojson }}
         
         function drawGraph(nodes, links) {
             const width = document.querySelector('svg').getBoundingClientRect().width;

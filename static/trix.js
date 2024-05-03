@@ -41,8 +41,8 @@ function createDocument(title, content) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            title: title,
-            content: content
+            title,
+            content
         })
     })
         .then(response => {

@@ -4,7 +4,16 @@
 
 {% include 'searchbar.html' %}
 
-<h2>Search Results</h2>
+<h2 id="answer"><i class="bi bi-check-circle"></i> Answer <a class="anchor-link" href="#answer" aria-label="Link to this section: Answer">#</a></h2>
+
+<div class="card my-3">
+    <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-chat"></i> ChatGPT </h5>
+        <div id="answer-content" class="card-text">Fetching your answer...</div>
+    </div>
+</div>
+
+<h2 id="source"><i class="bi bi-file-earmark-richtext"></i> Sourced from <a class="anchor-link" href="#source" aria-label="Link to this section: Source">#</a></h2>
 
 {% if data.results %}
     {% for node in data.results %}

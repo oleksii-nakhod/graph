@@ -1,3 +1,5 @@
+answerContent = document.querySelector('#answer-content');
+
 function updateSearchInput() {
     uriParams = new URLSearchParams(window.location.search);
     if (uriParams.has("q")) {
@@ -33,5 +35,31 @@ function updateProgressBars() {
     });
 }
 
+async function getAnswer() {
+    const response = await fetch(url_create_completion, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            content: document.querySelector('#input-query').value
+        })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let content = '';
+    while (true) {
+        const { done, value } = await reader.read();
+        content += decoder.decode(value);
+        console.log(content);
+        answerContent.innerHTML = marked.parse(content);
+        if (done) {
+            break;
+        }
+    }
+}
+
 updateSearchInput();
 updateProgressBars();
+getAnswer();

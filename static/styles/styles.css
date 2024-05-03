@@ -41,6 +41,7 @@ h4 {
 .link {
     stroke: #aaa;
 }
+
 .node circle {
     stroke: #000;
     stroke-width: 1.5px;
@@ -62,4 +63,19 @@ h4 {
     height: 48px;
     width: auto;
     margin: 0px 5px 5px 0px;
+}
+
+.anchor-link:focus, .anchor-link:hover, :hover>.anchor-link, :target>.anchor-link {
+    color: #0d6efd;
+    text-decoration: none;
+    opacity: 1;
+}
+
+.anchor-link {
+    padding: 0 .175rem;
+    font-weight: 400;
+    color: rgba(13,110,253,0.5);
+    text-decoration: none;
+    opacity: 0;
+    transition: color 0.15s ease-in-out,opacity 0.15s ease-in-out;
 }

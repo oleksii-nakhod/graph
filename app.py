@@ -33,6 +33,8 @@ cache = Cache(
 openai_client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY")
 )
+OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBEDDING_MODEL")
+OPENAI_COMPLETION_MODEL = os.environ.get("OPENAI_COMPLETION_MODEL")
 
 class Neo4jConnection:
     
@@ -71,29 +73,31 @@ conn = Neo4jConnection(
     auth=ADMIN_AUTH           
 )
 
+
 def create_openai_embedding(input):
     response = openai_client.embeddings.create(
         input=input,
-        model="text-embedding-3-small"
+        model=OPENAI_EMBEDDING_MODEL
     )
     return response
+
 
 def html_to_text(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
     return soup.get_text()
+
 
 def hash_password(password):
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
     return hashed_password
 
+
 def verify_password(input_password, hashed_password):
     if isinstance(input_password, str):
         input_password = input_password.encode('utf-8')
     if isinstance(hashed_password, str):
         hashed_password = hashed_password.encode('utf-8')
-    print("input_password", input_password)
-    print("hashed_password", hashed_password)
     return bcrypt.checkpw(input_password, hashed_password)
 
 
@@ -151,6 +155,22 @@ def init_database():
 
 
 init_database()
+
+
+@app.route('/api/chat/completions', methods=['POST'])
+def api_create_completion():
+    content = request.json.get('content')
+    def generate():
+        stream = openai_client.chat.completions.create(
+            model=OPENAI_COMPLETION_MODEL,
+            messages=[{"role": "user", "content": content}],
+            stream=True
+        )
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                yield chunk.choices[0].delta.content
+    
+    return generate(), {"Content-Type": "text/plain"}
 
 
 @app.route('/', methods=['GET'])
