@@ -170,6 +170,35 @@ def search():
     query = request.args.get('q')
     if not query:
         return redirect(url_for('index'))
+    data = get_documents_data(query)
+    return render_template('search.html', data=data)
+
+
+@app.route('/new', methods=['GET'])
+def new():
+    if not 'logged_in' in session or not session['logged_in']:
+        return redirect(url_for('index'))
+    
+    return render_template('new.html')
+
+
+@app.route('/docs/<document_id>', methods=['GET'])
+def view_document(document_id):
+    document = get_document(document_id)
+    return render_template('docs.html', data=document)
+
+
+@app.route('/api/docs', methods=['GET'])
+def api_get_documents():
+    data = get_documents_data(request.args.get('q'))
+    if data is None:
+        return jsonify({'message': 'No data found'}), 404
+    return jsonify(data)
+
+
+def get_documents_data(query):
+    if not query:
+        return None
     
     openai_response = create_openai_embedding(query)
     
@@ -197,13 +226,33 @@ def search():
         },
         db="neo4j"
     )
-    print("RESRESRESRES", results)
-    data = convert_results(results)
-    return render_template('search.html', data=data)
+    return convert_results(results)
+    
+
+@app.route('/api/docs/<document_id>', methods=['GET'])
+def api_get_document(document_id):
+    document = get_document(document_id)
+    if document is None:
+        return jsonify({'message': 'Document not found'}), 404
+    return jsonify(document)
 
 
+def get_document(document_id):
+    query = """
+        MATCH (d:Document)
+        WHERE elementId(d) = $document_id
+        RETURN d.title AS title, d.content AS content
+    """
+    results = conn.query(query=query, parameters={'document_id': document_id}, db="neo4j")
+    if not results:
+        return None
+    return {
+        'title': results[0]['title'],
+        'content': results[0]['content']
+    }
 
-@app.route('/create', methods=['POST'])
+
+@app.route('/api/docs', methods=['POST'])
 def create_document():
     if not 'logged_in' in session or not session['logged_in']:
         return jsonify({'message': 'You do not have permission to create documents'}), 403
@@ -240,29 +289,42 @@ def create_document():
     return jsonify({'message': 'Document created successfully'}), 201
 
 
-@app.route('/new', methods=['GET'])
-def new():
+@app.route('/api/docs/<document_id>', methods=['PUT'])
+def update_document(document_id):
+    print("UPDATING DOCUMENT")
     if not 'logged_in' in session or not session['logged_in']:
-        return redirect(url_for('index'))
+        return jsonify({'message': 'You do not have permission to update documents'}), 403
     
-    return render_template('new.html')
-
-
-@app.route('/docs/<document_id>', methods=['GET'])
-def view_document(document_id):
+    data = request.json
+    if not data or 'id' not in data or 'title' not in data or 'content' not in data:
+        return jsonify({'message': 'ID, title and content are required'}), 400
+    
+    document_id = data['id']
+    title = data['title']
+    content = data['content']
+    
+    response = create_openai_embedding(f"{title} {html_to_text(content)}")
+    
     query = """
-        MATCH (d:Document)
-        WHERE elementId(d) = $document_id
-        RETURN d.title AS title, d.content AS content
+        MATCH (a:Document) WHERE elementId(a) = $document_id
+        SET a.title = $title, a.content = $content, a.embedding = $embedding
+        RETURN a
     """
-    results = conn.query(query=query, parameters={'document_id': document_id}, db="neo4j")
-    if not results:
-        return redirect(url_for('index'))
+    conn.query(
+        query=query,
+        parameters={
+            'document_id': document_id,
+            'title': title,
+            'content': content,
+            'embedding': response.data[0].embedding
+        },
+        db="neo4j"
+    )
     
-    return render_template('docs.html', title=results[0]['title'], content=results[0]['content'])
+    return jsonify({'message': 'Document updated successfully'}), 200
 
 
-@app.route('/login', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
 def login():
     username = request.json.get('username')
     password = request.json.get('password')
@@ -290,7 +352,7 @@ def login():
     return jsonify({'message': 'Login successful'}), 200
 
 
-@app.route('/signup', methods=['POST'])
+@app.route('/api/signup', methods=['POST'])
 def signup():
     username = request.json.get('username')
     password = request.json.get('password')
@@ -329,10 +391,12 @@ def signup():
     return jsonify({'message': 'Signup successful'}), 201
 
 
-@app.route('/logout', methods=['POST'])
+@app.route('/api/logout', methods=['POST'])
 def logout():
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You are not logged in'}), 401
     session.clear()
-    return redirect(url_for('index'))
+    return jsonify({'message': 'Logout successful'}), 200
 
     
 def check_cache(cache_key):

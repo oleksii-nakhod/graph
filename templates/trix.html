@@ -9,9 +9,16 @@
         <input id="input-trix" type="hidden" name="content">
         <trix-editor input="input-trix" id="input-document-content"></trix-editor>
     </div>
-    <div class="row">
-        <div class="col-12 col-md-4 mb-3"></div>
-        <button type="submit" class="btn btn-primary col-12 col-md-4 mb-3" id="btn-create-document"><i class="bi bi-floppy2-fill"></i> Save
+    <div class="row gap-3 justify-content-center">
+        <button class="btn btn-secondary col-12 col-md-3 mb-3" id="btn-delete-document"><i class="bi bi-trash"></i> Delete
+        </button>
+        <button class="btn btn-secondary col-12 col-md-3 mb-3" id="btn-cancel-document"><i class="bi bi-x-lg"></i> Discard
+        </button>
+        <button type="button" class="btn btn-primary col-12 col-md-3 mb-3" id="btn-edit-document"><i class="bi bi-pencil"></i> Edit
+        </button>
+        <button type="button" class="btn btn-primary col-12 col-md-3 mb-3" id="btn-save-document"><i class="bi bi-floppy2-fill"></i> Save
+        </button>
+        <button type="button" class="btn btn-primary col-12 col-md-3 mb-3" id="btn-create-document"><i class="bi bi-plus-lg"></i> Create
         </button>
     </div>
 </form>
@@ -24,7 +31,8 @@
     Document saved successfully! Redirecting to the previous page...
 </div>
 
-<script>
-    const inputDocumentTitle = document.querySelector('#input-document-title');
-    const inputDocumentContent = document.querySelector('#input-document-content');
-</script>
+<div id="alert-submission-error" class="alert alert-danger d-none" role="alert">
+    An error occurred while saving the document. Please try again.
+</div>
+
+<script src="{{ url_for('static',filename='trix.js') }}"></script>

@@ -84,53 +84,21 @@ function validateLoginForm() {
     return false;
 }
 
-
-
-function validateDocumentForm() {
-    const title = document.querySelector('#input-document-title').value;
-    const content = document.querySelector('#input-document-content').value;
-    
-    const alertContentMissing = document.querySelector('#alert-content-missing');
-    const alertSubmissionSuccess = document.querySelector('#alert-submission-success');
-
-    if (!title || !content) {
-        alertContentMissing.classList.remove('d-none');
-        return false;
-    }
-
-    alertContentMissing.classList.add('d-none');
-
-    fetch(`${url_create_document}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            title: title,
-            content: content
-        })
-    })
-    .then(response => {
-        if (response.ok) {
-            alertSubmissionSuccess.classList.remove('d-none');
-            setInterval(() => {
-                history.back();
-            }, 2000);
-        } else {
-            return response.json().then(data => {
-                throw new Error(data.msg);
-            });
-        }
-    })
-    return false;
-}
-
 function logOut() {
     fetch(url_logout, {
         method: 'POST'
     })
-    .then(() => {
-        location.reload();
+    .then((response) => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            return response.json().then(data => {
+                throw new Error(data.message);
+            });
+        }
+    })
+    .catch(error => {
+        console.error(error);
     });
 }
 

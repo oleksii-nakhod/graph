@@ -6,8 +6,9 @@
 {% include 'trix.html' %}
 
 <script>
-    inputDocumentTitle.value = '{{ title }}';
-    inputDocumentContent.value = '{{ content | safe }}';
+    data = {{ data | tojson | safe }};
+    inputDocumentTitle.value = '{{ data.title }}';
+    inputDocumentContent.value = '{{ data.content | safe }}';
     inputDocumentTitle.readOnly = true;
     document.querySelector('trix-editor').editor.element.setAttribute('contentEditable', false)
 </script>
