@@ -270,103 +270,143 @@ document.addEventListener('trix-attachment-remove', function (event) {
 });
 
 
+function prepareFormData(file) {
+    const form = new FormData();
+    form.append('file', file);
+    return form;
+}
+
+async function uploadFile(form) {
+    const response = await fetch(url_create_file, {
+        method: 'POST',
+        body: form
+    });
+    if (!response.ok) {
+        throw new Error('Error uploading file');
+    }
+    return await response.json();
+}
+
+function handleFileUploadResponse(data, file, selectedRange, attachment) {
+    const url = url_get_file.replace('FILE_ID', data.id);
+    attachment.setAttributes({
+        url: url
+    });
+
+    if (file.type.startsWith('audio')) {
+        return processAudioFile(url, selectedRange);
+    } else if (file.type.startsWith('image')) {
+        return processImageFile(url, selectedRange, attachment);
+    }
+}
+
+function processAudioFile(url, selectedRange) {
+    const audioHtml = `<audio controls src=${url}>`;
+    const audioAttachment = new Trix.Attachment({ content: audioHtml });
+    inputDocumentContent.editor.setSelectedRange(selectedRange);
+    inputDocumentContent.editor.insertAttachment(audioAttachment);
+}
+
+function createAudioTranscription(form, file) {
+    fetch(url_create_transcription, {
+        method: 'POST',
+        body: form
+    }).then(response => {
+        if (!response.ok) {
+            throw new Error('Error creating transcription');
+        }
+        return response.json();
+    }).then(data => {
+        inputDocumentContent.editor.insertHTML(`<i>Audio transcription:\n${data.text}</i>`);
+    }).catch(console.error);
+}
+
+function processImageFile(url, selectedRange, attachment) {
+    return fetch(url_create_completion, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            messages: [{
+                role: 'user',
+                content: [
+                    { type: 'text', text: "What's in this image?" },
+                    { type: 'image_url', image_url: { url: `${window.location.origin}${url}` } }
+                ]
+            }]
+        })
+    }).then(response => processImageResponse(response, attachment))
+        .catch(console.error);
+}
+
+function processImageResponse(response, attachment) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedDescription = "";
+    readStreamToUpdateCaption(reader, decoder, attachment, accumulatedDescription);
+}
+
+function readStreamToUpdateCaption(reader, decoder, attachment, accumulatedDescription) {
+    reader.read().then(({ done, value }) => {
+        if (done) {
+            return;
+        }
+        accumulatedDescription += decoder.decode(value);
+        readStreamToUpdateCaption(reader, decoder, attachment, accumulatedDescription);
+        updateImageCaption(accumulatedDescription, attachment);
+    });
+}
+
+function updateImageCaption(description, attachment) {
+    const editor = document.querySelector('trix-editor').editor;
+    const originalRange = editor.getSelectedRange();
+    const attachmentRange = editor.getDocument().getRangeOfAttachment(attachment);
+
+    editor.setSelectedRange(attachmentRange);
+    editor.activateAttribute("caption", description);
+    editor.setSelectedRange(originalRange);
+}
+
+function readStream(reader, decoder) {
+    reader.read().then(({ done, value }) => {
+        if (done) {
+            return;
+        }
+        inputDocumentContent.editor.insertHTML(`<i>${decoder.decode(value)}</i>`);
+        readStream(reader, decoder);
+    });
+}
+
+function restoreEditorState() {
+    inputDocumentContent.editor.element.setAttribute('contentEditable', true);
+}
+
 function uploadAttachment(attachment) {
     const file = attachment.file;
     const selectedRange = inputDocumentContent.editor.getSelectedRange();
 
     if (file) {
-        const form = new FormData();
-        form.append('file', file);
-        inputDocumentContent.editor.element.setAttribute('contentEditable', false)
-        
-        const uploadFilePromise = fetch(url_create_file, {
-            method: 'POST',
-            body: form
-        })
-            .then(response => {
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    throw new Error('Error uploading file');
-                }
-            })
-            .then(data => {
-                const url = url_get_file.replace('FILE_ID', data.id);
+        const form = prepareFormData(file);
+        inputDocumentContent.editor.element.setAttribute('contentEditable', false);
 
-                attachment.setAttributes({
-                    url: url,
-                    href: url,
-                });
+        const uploadFilePromise = uploadFile(form)
+            .then(data => handleFileUploadResponse(data, file, selectedRange, attachment))
+            .catch(console.error);
 
-                if (file.type.startsWith('audio')) {
-                    const audioHtml = `<audio controls src=${url}>`;
-                    const audioAttachment = new Trix.Attachment({ content: audioHtml });
-                    inputDocumentContent.editor.setSelectedRange(selectedRange);
-                    inputDocumentContent.editor.insertAttachment(audioAttachment);
-                }
-                if (file.type.startsWith('image')) {
-                    return fetch(url_create_completion, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            messages: [{
-                                role: 'user',
-                                content: [
-                                    {type: 'text', text: "What's in this image?"},
-                                    { type: 'image_url', image_url: { url: `${window.location.origin}${url}` }}
-                                ]
-                            }]
-                        })
-                    })
-                        .then(async response => {
-                            const reader = response.body.getReader();
-                            const decoder = new TextDecoder();
-                            inputDocumentContent.editor.setSelectedRange(selectedRange);
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                inputDocumentContent.editor.insertString(decoder.decode(value));
-                                if (done) {
-                                    break;
-                                }
-                            }
-                        })
-                        .catch(error => {
-                            console.error(error);
-                        });
-                }
-            })
-            .catch(error => {
-                console.error(error);
-            })
-
-        const transcriptionPromise = file.type.startsWith('audio') ? fetch(url_create_transcription, {
-            method: 'POST',
-            body: form
-        }).then(response => {
-            if (!response.ok) {
-                throw new Error('Error creating transcription');
-            }
-            return response.json();
-        }).then(data => {
-            inputDocumentContent.editor.insertHTML(`<i>${file.name} transcription:\n${data.text}</i>`);
-        }) : Promise.resolve();
+        const transcriptionPromise = file.type.startsWith('audio') ?
+            createAudioTranscription(form, file) : Promise.resolve();
 
         Promise.all([uploadFilePromise, transcriptionPromise])
-            .catch(error => {
-                console.error(error);
-            })
-            .finally(() => {
-                inputDocumentContent.editor.element.setAttribute('contentEditable', true)
-            });
+            .catch(console.error)
+            .finally(restoreEditorState);
     }
 }
+
 
 function deleteAttachment(attachment) {
     const fileId = attachment.attachment.attributes.values.url.split('/').pop();
     const url = url_delete_file.replace('FILE_ID', fileId);
-    console.log(url);
     fetch(url, {
         method: 'DELETE'
     })

@@ -167,7 +167,6 @@ init_database()
 @app.route('/api/chat/completions', methods=['POST'])
 def api_create_completion():
     messages = request.json.get('messages')
-    print("MESSAGES", messages)
     def generate():
         stream = openai_client.chat.completions.create(
             model=OPENAI_COMPLETION_MODEL,
