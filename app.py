@@ -121,14 +121,16 @@ def convert_results(results):
             node_ids.add(result['user_id'])
 
         for doc in result['documents']:
-            if doc['doc_id'] not in node_ids:
-                nodes.append({"title": doc['doc_title'], "id": doc['doc_id'], "label": "Document"})
-                node_ids.add(doc['doc_id'])
-            links.append({"source": doc['doc_id'], "target": result['user_id']})
+            if doc['id'] not in node_ids:
+                nodes.append({"title": doc['title'], "id": doc['id'], "label": "Document"})
+                node_ids.add(doc['id'])
+            links.append({"source": doc['id'], "target": result['user_id']})
             result_data.append({
-                "title": doc['doc_title'],
-                "id": doc['doc_id'],
-                "content": doc['doc_content'],
+                "title": doc['title'],
+                "id": doc['id'],
+                "content": doc['content'],
+                "created_at": doc['created_at'],
+                "author": doc['author'],
                 "score": doc.get('score', 1),
             })
 
@@ -185,7 +187,14 @@ def index():
     query = """
     MATCH (u:User)-[r:CREATED]->(d:Document)
     RETURN u.username AS user_name, elementId(u) AS user_id,
-           COLLECT({doc_id: elementId(d), doc_title: d.title, doc_content: d.content, rel_type: type(r)}) AS documents
+        COLLECT({
+            id: elementId(d),
+            title: d.title,
+            content: d.content,
+            created_at: d.created_at, 
+            author: u.username,
+            rel_type: type(r)
+        }) AS documents
     """
     results = conn.query(query=query, db="neo4j")
     response_data = convert_results(results)
@@ -239,9 +248,11 @@ def get_documents_data(query):
         WITH u, d, r, score
         ORDER BY score DESC
         WITH u, COLLECT({
-            doc_id: elementId(d), 
-            doc_title: d.title, 
-            doc_content: d.content, 
+            id: elementId(d), 
+            title: d.title, 
+            content: d.content,
+            created_at: d.created_at, 
+            author: u.username,
             rel_type: type(r), 
             score: score
         }) AS documents
