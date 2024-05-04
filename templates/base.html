@@ -24,6 +24,8 @@
         const url_update_document = {{ url_for("api_update_document", document_id="DOCUMENT_ID")|tojson }}
         const url_delete_document = {{ url_for("api_delete_document", document_id="DOCUMENT_ID")|tojson }}
         const url_create_completion = {{ url_for("api_create_completion")|tojson }}
+        const url_get_file = {{ url_for("api_get_file", file_id="FILE_ID")|tojson }}
+        const url_create_file = {{ url_for("api_create_file")|tojson }}
         
         function drawGraph(nodes, links) {
             const width = document.querySelector('svg').getBoundingClientRect().width;
@@ -51,9 +53,16 @@
                 .data(nodes)
                 .enter().append('g')
 
-            node.append('circle')
-                .attr('r', 20)
-                .attr('fill', d => d.label === 'User' ? 'steelblue' : 'brown')
+            node.each(function(d) {
+                const nodeElement = d3.select(this);
+                if (d.label === 'Document') {
+                    const link = nodeElement.append('a')
+                        .attr('xlink:href', d => `/docs/${d.id}`);
+                    appendNodeContent(link);
+                } else {
+                    appendNodeContent(nodeElement);
+                }
+            });
 
             const drag_handler = d3.drag()
                 .on('start', dragstarted)
@@ -62,19 +71,28 @@
             
             drag_handler(node);
 
+            function appendNodeContent(container) {
+                container.append('circle')
+                    .attr('r', 20)
+                    .attr('fill', d => d.label === 'User' ? 'steelblue' : 'brown');
+
+                container.append('text')
+                    .text(d => d.title)
+                    .attr('x', 25)
+                    .attr('y', 6)
+                    .style('font-size', '18px')
+                    .style('font-family', 'Arial, sans-serif');
+
+                container.append('title')
+                    .text(d => d.title);
+            }
+
             function updateDimensions() {
                 const width = svg.node().getBoundingClientRect().width;
                 svg.attr('height', height);
                 simulation.force('center', d3.forceCenter(width / 2, height / 2));
                 simulation.alpha(0.3).restart();
             }
-
-            node.append('text')
-                .text(d => d.title)
-                .attr('x', 25)
-                .attr('y', 6)
-                .style('font-size', '18px')
-                .style('font-family', 'Arial, sans-serif');
 
             node.append('title')
                 .text(d => d.title);
@@ -228,6 +246,6 @@
         </nav>
     </footer> -->
 
-    <script src="{{ url_for('static',filename='scripts.js') }}"></script>
+    <script src="{{ url_for('static',filename='scripts/base.js') }}"></script>
 </body>
 </html>

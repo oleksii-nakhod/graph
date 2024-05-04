@@ -5,7 +5,6 @@ const btnEdit = document.querySelector('#btn-edit-document');
 const btnSave = document.querySelector('#btn-save-document');
 const btnCreate = document.querySelector('#btn-create-document');
 
-
 const formDocument = document.querySelector('#form-document');
 const inputDocumentTitle = document.querySelector('#input-document-title');
 const inputDocumentContent = document.querySelector('#input-document-content');
@@ -160,14 +159,45 @@ function deleteDocument(documentId) {
         });
 }
 
+
+function uploadFileAttachment(attachment) {
+    const file = attachment.file;
+    const form = new FormData();
+    form.append('file', file);
+
+    fetch(url_create_file, {
+        method: 'POST',
+        body: form
+    })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Error uploading file');
+            }
+        })
+        .then(data => {
+            url = url_get_file.replace('FILE_ID', data.id);
+            attachment.setAttributes({
+                url
+            });
+        })
+        .catch(error => {
+            console.error(error);
+        });
+}
+
+
 btnBack.addEventListener('click', function() {
     history.back();
 });
+
 
 btnDelete.addEventListener('click', function() {
     documentId = formDocument.getAttribute('data-document-id');
     deleteDocument(documentId);
 });
+
 
 btnCancel.addEventListener('click', function() {
     btnSave.classList.add('d-none');
@@ -181,6 +211,7 @@ btnCancel.addEventListener('click', function() {
     inputDocumentContent.editor.element.setAttribute('contentEditable', false)
 });
 
+
 btnEdit.addEventListener('click', function() {
     inputDocumentTitle.removeAttribute('readonly');
     inputDocumentContent.editor.element.setAttribute('contentEditable', true)
@@ -192,12 +223,14 @@ btnEdit.addEventListener('click', function() {
     btnCancel.classList.remove('d-none');
 });
 
+
 btnSave.addEventListener('click', function() {
     documentId = formDocument.getAttribute('data-document-id');
     title = inputDocumentTitle.value;
     content = inputDocumentContent.value;
     updateDocument(documentId, title, content);
 });
+
 
 btnCreate.addEventListener('click', function() {
     inputDocumentTitle.removeAttribute('readonly');
@@ -212,3 +245,10 @@ btnCreate.addEventListener('click', function() {
 });
 
 
+addEventListener('trix-attachment-add', function(event) {
+    console.log("trix-attachment-add")
+    const attachment = event.attachment;
+    if (attachment.file) {
+        return uploadFileAttachment(attachment);
+    }
+});

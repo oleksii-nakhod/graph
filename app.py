@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, session
+from werkzeug.utils import secure_filename
 from waitress import serve
 from flask_caching import Cache
 import logging
 import os
+import uuid
 from dotenv import load_dotenv
 import requests
 import json
@@ -15,8 +17,14 @@ from bs4 import BeautifulSoup
 
 load_dotenv()
 
+DOMAIN_NAME = os.environ.get("DOMAIN_NAME")
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
+
+FILE_DIR = 'static/files'
+if not os.path.exists(FILE_DIR):
+    os.makedirs(FILE_DIR)
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 app.logger.info('Logging setup complete')
@@ -448,6 +456,36 @@ def api_logout():
         return jsonify({'message': 'You are not logged in'}), 401
     session.clear()
     return jsonify({'message': 'Logout successful'}), 200
+
+
+@app.route('/api/files/<file_id>', methods=['GET'])
+def api_get_file(file_id):
+    file_path = os.path.join(FILE_DIR, file_id)
+    if not os.path.exists(file_path):
+        return jsonify({'message': 'File not found'}), 404
+    
+    return Response(open(file_path, 'rb'), mimetype='application/octet-stream')
+
+
+@app.route('/api/files', methods=['POST'])
+def api_create_file():
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to upload files'}), 403
+    
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'message': 'File is required'}), 400
+    
+    original_filename = secure_filename(file.filename)
+    filename_base, file_extension = os.path.splitext(original_filename)
+
+    random_uuid = uuid.uuid4().hex
+    new_filename = f"{filename_base}_{random_uuid}{file_extension}"
+    
+    file_path = os.path.join(FILE_DIR, new_filename)
+    file.save(file_path)
+    
+    return jsonify({'id': new_filename}), 201
 
     
 def check_cache(cache_key):
