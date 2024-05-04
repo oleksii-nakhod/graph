@@ -159,11 +159,12 @@ init_database()
 
 @app.route('/api/chat/completions', methods=['POST'])
 def api_create_completion():
-    content = request.json.get('content')
+    messages = request.json.get('messages')
+    print(messages)
     def generate():
         stream = openai_client.chat.completions.create(
             model=OPENAI_COMPLETION_MODEL,
-            messages=[{"role": "user", "content": content}],
+            messages=messages,
             stream=True
         )
         for chunk in stream:
@@ -249,7 +250,9 @@ def get_documents_data(query):
         },
         db="neo4j"
     )
-    return convert_results(results)
+    data = convert_results(results)
+    data['query'] = query
+    return data
     
 
 @app.route('/api/docs/<document_id>', methods=['GET'])

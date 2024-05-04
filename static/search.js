@@ -1,14 +1,5 @@
 answerContent = document.querySelector('#answer-content');
 
-function updateSearchInput() {
-    uriParams = new URLSearchParams(window.location.search);
-    if (uriParams.has("q")) {
-        const query = uriParams.get("q");
-        const searchInput = document.querySelector("#input-query");
-        searchInput.value = query;
-    }
-}
-
 function updateProgressBars() {
     const progressBars = document.querySelectorAll('.progress-bar');
     progressBars.forEach(function (bar) {
@@ -36,13 +27,32 @@ function updateProgressBars() {
 }
 
 async function getAnswer() {
+    const systemMessage = {
+        role: 'system',
+        content: "Answer the user query with the information from their internal knowledge base. If this knowledge conflicts with yours, give preference to the user's knowledge. If you don't know the answer, you can say 'I don't know'."
+    }
+
+    const internalKnowledgeMessages = searchResponse.results.map(result => {
+        return {
+            role: 'assistant',
+            content: `Title: ${result.title}\nContent: ${result.content}`
+        };
+    });
+
+    const userMessage = {
+        role: 'user',
+        content: searchResponse.query
+    };
+
+    const messages = [systemMessage, ...internalKnowledgeMessages, userMessage];
+
     const response = await fetch(url_create_completion, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            content: document.querySelector('#input-query').value
+            messages
         })
     });
 
@@ -52,7 +62,6 @@ async function getAnswer() {
     while (true) {
         const { done, value } = await reader.read();
         content += decoder.decode(value);
-        console.log(content);
         answerContent.innerHTML = marked.parse(content);
         if (done) {
             break;
@@ -60,6 +69,5 @@ async function getAnswer() {
     }
 }
 
-updateSearchInput();
 updateProgressBars();
 getAnswer();

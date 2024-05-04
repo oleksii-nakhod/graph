@@ -7,10 +7,9 @@
 </div>
 
 <script>
-    data = {{ data | tojson | safe }};
-    console.log(data);
-    if (data.graph.nodes.length > 0) {
-        drawGraph(data.graph.nodes, data.graph.links);
+    const searchResponse = {{ data | safe }};
+    if (searchResponse.graph.nodes.length > 0) {
+        drawGraph(searchResponse.graph.nodes, searchResponse.graph.links);
     } else {
         document.getElementById('alert-graph-data-missing').classList.remove('d-none');
     }
