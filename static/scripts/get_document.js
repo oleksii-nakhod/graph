@@ -1,7 +1,10 @@
-btnBack.classList.remove('d-none');
-btnDelete.classList.remove('d-none');
-btnCancel.classList.add('d-none');
-btnEdit.classList.remove('d-none');
-btnSave.classList.add('d-none');
-btnCreate.classList.add('d-none');
+setElementVisibility({
+    '#btn-back': true,
+    '#btn-delete-document': true,
+    '#btn-cancel-document': false,
+    '#btn-edit-document': true,
+    '#btn-save-document': false,
+    '#btn-create-document': false
+});
+
 disableEditor();

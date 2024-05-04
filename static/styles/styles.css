@@ -83,3 +83,14 @@ h4 {
 .vh-75 {
     height: 75vh;
 }
+
+figure img {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    max-height: 512px;
+}
+
+figure audio {
+    max-width: 100%;
+}

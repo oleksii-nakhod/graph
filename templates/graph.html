@@ -131,6 +131,8 @@
             d.fy = null;
         }
     } else {
-        document.getElementById('alert-graph-data-missing').classList.remove('d-none');
+        setElementVisibility({
+            '#alert-graph-data-missing': true
+        });
     }
 </script>

@@ -14,7 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
-    
     <script>
         const url_signup = {{ url_for("api_signup")|tojson }}
         const url_login = {{ url_for("api_login")|tojson }}
@@ -27,6 +26,21 @@
         const url_get_file = {{ url_for("api_get_file", file_id="FILE_ID")|tojson }}
         const url_create_file = {{ url_for("api_create_file")|tojson }}
         const url_delete_file = {{ url_for("api_delete_file", file_id="FILE_ID")|tojson }}
+        const url_create_transcription = {{ url_for("api_create_transcription")|tojson }}
+
+        function setElementVisibility(elements) {
+            for (const [key, visible] of Object.entries(elements)) {
+                const element = document.querySelector(key);
+                if (element) {
+                    if (visible) {
+                        element.classList.remove('d-none');
+                    } else {
+                        element.classList.add('d-none');
+                    }
+                }
+            }
+        }
+
     </script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">

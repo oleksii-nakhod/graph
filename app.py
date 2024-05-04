@@ -11,6 +11,7 @@ from datetime import datetime
 from neo4j import GraphDatabase
 import bcrypt
 from bs4 import BeautifulSoup
+import io
 
 load_dotenv()
 
@@ -40,6 +41,7 @@ openai_client = OpenAI(
 )
 OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBEDDING_MODEL")
 OPENAI_COMPLETION_MODEL = os.environ.get("OPENAI_COMPLETION_MODEL")
+OPENAI_TRANSCRIPTION_MODEL = os.environ.get("OPENAI_TRANSCRIPTION_MODEL")
 
 class Neo4jConnection:
     
@@ -165,6 +167,7 @@ init_database()
 @app.route('/api/chat/completions', methods=['POST'])
 def api_create_completion():
     messages = request.json.get('messages')
+    print("MESSAGES", messages)
     def generate():
         stream = openai_client.chat.completions.create(
             model=OPENAI_COMPLETION_MODEL,
@@ -494,6 +497,31 @@ def api_delete_file(file_id):
     
     os.remove(file_path)
     return jsonify({'message': 'File deleted successfully'}), 200
+
+
+@app.route('/api/audio/transcriptions', methods=['POST'])
+def api_create_transcription():
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'message': 'File is required'}), 400
+
+    allowed_formats = ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+    file_extension = file.filename.split('.')[-1].lower()
+    if file_extension not in allowed_formats:
+        return jsonify({'message': f"Unsupported file format. Supported formats: {allowed_formats}, got '{file_extension}'"}), 400
+
+    buffer = io.BytesIO(file.read())
+    buffer.name = file.filename
+    
+    try:
+        transcript = openai_client.audio.transcriptions.create(
+            model="whisper-1",
+            file=buffer
+        )
+        return jsonify({'text': transcript.text}), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 400
+    
 
     
 def check_cache(cache_key):
