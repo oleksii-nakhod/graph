@@ -8,11 +8,24 @@ const btnCreate = document.querySelector('#btn-create-document');
 const formDocument = document.querySelector('#form-document');
 const inputDocumentTitle = document.querySelector('#input-document-title');
 const inputDocumentContent = document.querySelector('#input-document-content');
+const inputHiddenTrix = document.querySelector('#input-hidden-trix');
 const alertSubmissionSuccess = document.querySelector('#alert-submission-success');
 const spinnerLoading = document.querySelector('#spinner-loading');
 const documentActions = document.querySelector('#document-actions');
 
 const trixToolbar = document.querySelector('trix-toolbar');
+
+function enableEditor() {
+    inputDocumentTitle.removeAttribute('readonly');
+    inputDocumentContent.editor.element.setAttribute('contentEditable', true)
+    trixToolbar.classList.remove('d-none');
+}
+
+function disableEditor() {
+    inputDocumentTitle.setAttribute('readonly', '');
+    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    trixToolbar.classList.add('d-none');
+}
 
 function validateDocumentForm() {
     const title = document.querySelector('#input-document-title').value;
@@ -35,7 +48,12 @@ function createDocument(title, content) {
         return false;
     }
 
+    inputDocumentTitle.setAttribute('readonly', '');
+    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    btnCreate.classList.add('d-none');
+    btnBack.classList.add('d-none');
     spinnerLoading.classList.remove('d-none');
+
     fetch(`${url_create_document}`, {
         method: 'POST',
         headers: {
@@ -62,6 +80,12 @@ function createDocument(title, content) {
             const alertSubmissionError = document.querySelector('#alert-submission-error');
             alertSubmissionError.textContent = error.message;
             alertSubmissionError.classList.remove('d-none');
+
+            inputDocumentTitle.removeAttribute('readonly');
+            inputDocumentContent.editor.element.setAttribute('contentEditable', true)
+            btnCreate.classList.remove('d-none');
+            btnBack.classList.remove('d-none');
+            spinnerLoading.classList.add('d-none');
         })
         .finally(() => {
             spinnerLoading.classList.add('d-none');
@@ -74,8 +98,7 @@ function updateDocument(documentId, title, content) {
     }
     url = url_update_document.replace('DOCUMENT_ID', documentId);
 
-    inputDocumentTitle.setAttribute('readonly', true);
-    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    disableEditor();
 
     btnBack.classList.add('d-none');
     btnEdit.classList.add('d-none');
@@ -113,8 +136,7 @@ function updateDocument(documentId, title, content) {
             const alertSubmissionError = document.querySelector('#alert-submission-error');
             alertSubmissionError.textContent = error.message;
             alertSubmissionError.classList.remove('d-none');
-            inputDocumentTitle.setAttribute('readonly', false);
-            inputDocumentContent.editor.element.setAttribute('contentEditable', true)
+            enableEditor();
             btnCancel.classList.remove('d-none');
             btnSave.classList.remove('d-none');
             trixToolbar.classList.remove('d-none');
@@ -135,6 +157,7 @@ function deleteDocument(documentId) {
     btnCreate.classList.add('d-none');
 
     spinnerLoading.classList.remove('d-none');
+
     fetch(`${url}`, {
         method: 'DELETE'
     })
@@ -164,52 +187,6 @@ function deleteDocument(documentId) {
 }
 
 
-function uploadFileAttachment(attachment) {
-    const file = attachment.file;
-    const form = new FormData();
-    form.append('file', file);
-
-    fetch(url_create_file, {
-        method: 'POST',
-        body: form
-    })
-        .then(response => {
-            if (response.ok) {
-                return response.json();
-            } else {
-                throw new Error('Error uploading file');
-            }
-        })
-        .then(data => {
-            url = url_get_file.replace('FILE_ID', data.id);
-            attachment.setAttributes({
-                url
-            });
-        })
-        .catch(error => {
-            console.error(error);
-        });
-}
-
-function deleteFileAttachment(attachment) {
-    const fileId = attachment.attachment.attributes.values.url.split('/').pop();
-    const url = url_delete_file.replace('FILE_ID', fileId);
-    fetch(url, {
-        method: 'DELETE'
-    })
-        .then(response => {
-            if (response.ok) {
-                return response.json();
-            } else {
-                throw new Error('Error deleting file');
-            }
-        })
-        .catch(error => {
-            console.error(error);
-        })
-}
-
-
 btnBack.addEventListener('click', function() {
     history.back();
 });
@@ -236,15 +213,13 @@ btnCancel.addEventListener('click', function() {
 
 
 btnEdit.addEventListener('click', function() {
-    inputDocumentTitle.removeAttribute('readonly');
-    inputDocumentContent.editor.element.setAttribute('contentEditable', true)
+    enableEditor();
     inputDocumentContent.focus();
     btnEdit.classList.add('d-none');
     btnBack.classList.add('d-none');
     btnDelete.classList.add('d-none');
     btnSave.classList.remove('d-none');
     btnCancel.classList.remove('d-none');
-    trixToolbar.classList.remove('d-none');
 });
 
 
@@ -257,30 +232,80 @@ btnSave.addEventListener('click', function() {
 
 
 btnCreate.addEventListener('click', function() {
-    inputDocumentTitle.removeAttribute('readonly');
-    inputDocumentContent.editor.element.setAttribute('contentEditable', true)
-    inputDocumentTitle.focus();
-    btnCreate.classList.add('d-none');
-    btnBack.classList.add('d-none');
-
     title = inputDocumentTitle.value;
     content = inputDocumentContent.value;
     createDocument(title, content);
 });
 
 
-addEventListener('trix-attachment-add', function(event) {
-    console.log('trix-attachment-add');
+document.addEventListener('trix-attachment-add', function (event) {
     const attachment = event.attachment;
-    if (attachment.file) {
-        return uploadFileAttachment(attachment);
-    }
+    uploadAttachment(attachment);
 });
 
-addEventListener('trix-attachment-remove', function(event) {
-    console.log('trix-attachment-remove');
+
+document.addEventListener('trix-attachment-remove', function (event) {
     const attachment = event.attachment;
     if (attachment.file) {
         return deleteFileAttachment(attachment);
     }
 });
+
+
+function uploadAttachment(attachment) {
+    const file = attachment.file;
+
+    if (file) {
+        const form = new FormData();
+        form.append('file', file);
+
+        fetch(url_create_file, {
+            method: 'POST',
+            body: form
+        })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Error uploading file');
+                }
+            })
+            .then(data => {
+                const url = url_get_file.replace('FILE_ID', data.id);
+
+                attachment.setAttributes({
+                    url: url,
+                    href: url,
+                });
+
+                if (file.type.startsWith('audio')) {
+                    const audioHtml = `<audio controls src=${url}>`;
+                    const audioAttachment = new Trix.Attachment({ content: audioHtml });
+                    inputDocumentContent.editor.insertAttachment(audioAttachment);
+                }
+            })
+            .catch(error => {
+                console.error(error);
+            });
+        return;
+    }
+}
+
+function deleteFileAttachment(attachment) {
+    const fileId = attachment.attachment.attributes.values.url.split('/').pop();
+    const url = url_delete_file.replace('FILE_ID', fileId);
+    fetch(url, {
+        method: 'DELETE'
+    })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Error deleting file');
+            }
+        })
+        .catch(error => {
+            console.error(error);
+        })
+}
+

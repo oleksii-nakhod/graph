@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
 from werkzeug.utils import secure_filename
 from waitress import serve
 from flask_caching import Cache
@@ -6,13 +6,10 @@ import logging
 import os
 import uuid
 from dotenv import load_dotenv
-import requests
-import json
 from openai import OpenAI
-from datetime import datetime, timedelta
+from datetime import datetime
 from neo4j import GraphDatabase
 import bcrypt
-import itertools
 from bs4 import BeautifulSoup
 
 load_dotenv()
@@ -168,7 +165,6 @@ init_database()
 @app.route('/api/chat/completions', methods=['POST'])
 def api_create_completion():
     messages = request.json.get('messages')
-    print(messages)
     def generate():
         stream = openai_client.chat.completions.create(
             model=OPENAI_COMPLETION_MODEL,
@@ -463,8 +459,7 @@ def api_get_file(file_id):
     file_path = os.path.join(FILE_DIR, file_id)
     if not os.path.exists(file_path):
         return jsonify({'message': 'File not found'}), 404
-    
-    return Response(open(file_path, 'rb'), mimetype='application/octet-stream')
+    return send_from_directory(FILE_DIR, file_id, as_attachment=True)
 
 
 @app.route('/api/files', methods=['POST'])
