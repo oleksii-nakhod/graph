@@ -56,7 +56,7 @@ h4 {
 
 #viz {
     width: 100%;
-    margin: auto;
+    height: 100%;
 }
 
 #logo {
@@ -78,4 +78,8 @@ h4 {
     text-decoration: none;
     opacity: 0;
     transition: color 0.15s ease-in-out,opacity 0.15s ease-in-out;
+}
+
+.vh-75 {
+    height: 75vh;
 }

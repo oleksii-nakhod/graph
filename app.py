@@ -487,6 +487,19 @@ def api_create_file():
     
     return jsonify({'id': new_filename}), 201
 
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+def api_delete_file(file_id):
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to delete files'}), 403
+    
+    file_path = os.path.join(FILE_DIR, file_id)
+    if not os.path.exists(file_path):
+        return jsonify({'message': 'File not found'}), 404
+    
+    os.remove(file_path)
+    return jsonify({'message': 'File deleted successfully'}), 200
+
     
 def check_cache(cache_key):
     cached_data = cache.get(cache_key)

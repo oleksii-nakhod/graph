@@ -12,6 +12,8 @@ const alertSubmissionSuccess = document.querySelector('#alert-submission-success
 const spinnerLoading = document.querySelector('#spinner-loading');
 const documentActions = document.querySelector('#document-actions');
 
+const trixToolbar = document.querySelector('trix-toolbar');
+
 function validateDocumentForm() {
     const title = document.querySelector('#input-document-title').value;
     const content = document.querySelector('#input-document-content').value;
@@ -81,6 +83,7 @@ function updateDocument(documentId, title, content) {
     btnSave.classList.add('d-none');
     btnCancel.classList.add('d-none');
     btnCreate.classList.add('d-none');
+    trixToolbar.classList.add('d-none');
 
     spinnerLoading.classList.remove('d-none');
 
@@ -114,6 +117,7 @@ function updateDocument(documentId, title, content) {
             inputDocumentContent.editor.element.setAttribute('contentEditable', true)
             btnCancel.classList.remove('d-none');
             btnSave.classList.remove('d-none');
+            trixToolbar.classList.remove('d-none');
         })
         .finally(() => {
             spinnerLoading.classList.add('d-none');
@@ -187,6 +191,24 @@ function uploadFileAttachment(attachment) {
         });
 }
 
+function deleteFileAttachment(attachment) {
+    const fileId = attachment.attachment.attributes.values.url.split('/').pop();
+    const url = url_delete_file.replace('FILE_ID', fileId);
+    fetch(url, {
+        method: 'DELETE'
+    })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Error deleting file');
+            }
+        })
+        .catch(error => {
+            console.error(error);
+        })
+}
+
 
 btnBack.addEventListener('click', function() {
     history.back();
@@ -208,7 +230,8 @@ btnCancel.addEventListener('click', function() {
     btnCreate.classList.add('d-none');
 
     inputDocumentTitle.setAttribute('readonly', true);
-    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    inputDocumentContent.editor.element.setAttribute('contentEditable', false);
+    trixToolbar.classList.add('d-none');
 });
 
 
@@ -221,6 +244,7 @@ btnEdit.addEventListener('click', function() {
     btnDelete.classList.add('d-none');
     btnSave.classList.remove('d-none');
     btnCancel.classList.remove('d-none');
+    trixToolbar.classList.remove('d-none');
 });
 
 
@@ -246,9 +270,17 @@ btnCreate.addEventListener('click', function() {
 
 
 addEventListener('trix-attachment-add', function(event) {
-    console.log("trix-attachment-add")
+    console.log('trix-attachment-add');
     const attachment = event.attachment;
     if (attachment.file) {
         return uploadFileAttachment(attachment);
+    }
+});
+
+addEventListener('trix-attachment-remove', function(event) {
+    console.log('trix-attachment-remove');
+    const attachment = event.attachment;
+    if (attachment.file) {
+        return deleteFileAttachment(attachment);
     }
 });
