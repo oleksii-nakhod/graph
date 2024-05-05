@@ -7,7 +7,7 @@ import os
 import uuid
 from dotenv import load_dotenv
 from openai import OpenAI
-from datetime import datetime
+from datetime import datetime, timezone
 from neo4j import GraphDatabase
 import bcrypt
 from bs4 import BeautifulSoup
@@ -282,9 +282,9 @@ def api_get_document(document_id):
 
 def get_document_data(document_id):
     query = """
-        MATCH (d:Document)
+        MATCH (u:User)-[:CREATED]->(d:Document)
         WHERE elementId(d) = $document_id
-        RETURN elementId(d) AS id, d.title AS title, d.content AS content
+        RETURN elementId(d) AS id, d.title AS title, d.content AS content, d.created_at AS created_at, u.username AS created_by
     """
     results = conn.query(query=query, parameters={'document_id': document_id}, db="neo4j")
     if not results:
@@ -292,7 +292,9 @@ def get_document_data(document_id):
     return {
         'id': results[0]['id'],
         'title': results[0]['title'],
-        'content': results[0]['content']
+        'content': results[0]['content'],
+        'created_at': results[0]['created_at'],
+        'created_by': results[0]['created_by']
     }
 
 
@@ -308,7 +310,7 @@ def api_create_document():
 
     title = data['title']
     content = data['content']
-    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    created_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
     response = create_openai_embedding(f"{title} {html_to_text(content)}")
 
@@ -316,9 +318,9 @@ def api_create_document():
         MATCH (u:User) WHERE elementId(u) = $user_id
         CREATE (a:Document {title: $title, content: $content, embedding: $embedding, created_at: $created_at})
         CREATE (u)-[:CREATED]->(a)
-        RETURN a
+        RETURN elementId(a) AS id
     """
-    conn.query(
+    results = conn.query(
         query=query,
         parameters={
             'user_id': session['id'],
@@ -330,7 +332,7 @@ def api_create_document():
         db="neo4j"
     )
     
-    return jsonify({'message': 'Document created successfully'}), 201
+    return jsonify({'id': results[0]['id']}), 201
 
 
 @app.route('/api/docs/<document_id>', methods=['PUT'])

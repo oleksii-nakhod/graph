@@ -26,6 +26,14 @@ function updateProgressBars() {
     });
 }
 
+function convertUtcToLocal() {
+    document.querySelectorAll('.datetime').forEach(function (element) {
+        const utcTime = element.getAttribute('data-datetime');
+        const localTime = new Date(utcTime).toLocaleString();
+        element.innerHTML = localTime;
+    });
+}
+
 async function getAnswer() {
     const systemMessage = {
         role: 'system',
@@ -70,4 +78,5 @@ async function getAnswer() {
 }
 
 updateProgressBars();
+convertUtcToLocal();
 getAnswer();
