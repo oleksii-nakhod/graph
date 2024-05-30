@@ -11,7 +11,7 @@
 </div>
 
 <script>
-    const searchResponse = {{ data | safe }};
+    const searchResponse = {{ data | tojson | safe }};
     const vizContainer = document.querySelector('#viz-container');
 
     if (searchResponse.graph.nodes.length > 0 && searchResponse.graph.links.length > 0) {

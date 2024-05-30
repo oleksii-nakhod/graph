@@ -186,13 +186,16 @@ def api_create_completion():
 def index():
     query = """
     MATCH (u:User)-[r:CREATED]->(d:Document)
-    RETURN u.username AS user_name, elementId(u) AS user_id,
+    WITH u.username AS user_name, elementId(u) AS user_id, d, r
+    ORDER BY d.created_at DESC
+    LIMIT 6
+    RETURN user_name, user_id,
         COLLECT({
             id: elementId(d),
             title: d.title,
             content: d.content,
-            created_at: d.created_at, 
-            author: u.username,
+            created_at: d.created_at,
+            author: user_name,
             rel_type: type(r)
         }) AS documents
     """

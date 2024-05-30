@@ -296,7 +296,8 @@ function handleFileUploadResponse(data, file, selectedRange, attachment) {
     if (file.type.startsWith('audio')) {
         return processAudioFile(url, selectedRange);
     } else if (file.type.startsWith('image')) {
-        return processImageFile(url, selectedRange, attachment);
+        console.log('Processing image file');
+        return processImageFile(url, attachment);
     }
 }
 
@@ -321,7 +322,7 @@ function createAudioTranscription(form, file) {
     }).catch(console.error);
 }
 
-function processImageFile(url, selectedRange, attachment) {
+function processImageFile(url, attachment) {
     return fetch(url_create_completion, {
         method: 'POST',
         headers: {
