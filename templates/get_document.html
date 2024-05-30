@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>View Document</h2>
+
+{% include 'trix.html' %}
+
+<script>
+    data = {{ data | tojson | safe }};
+    inputDocumentTitle.value = data.title;
+    inputDocumentContent.value = data.content;
+    inputDocumentTitle.readOnly = true;
+    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    formDocument.setAttribute('data-document-id', '{{ data.id }}')
+</script>
+
+<script src="{{ url_for('static',filename='scripts/get_document.js') }}"></script>
+
+{% endblock %}

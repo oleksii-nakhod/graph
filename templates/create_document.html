@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Create Document</h2>
+
+{% include 'trix.html' %}
+
+<script src="{{ url_for('static',filename='scripts/create_document.js') }}"></script>
+
+{% endblock %}

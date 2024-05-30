@@ -1,19 +1,28 @@
-from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
+from werkzeug.utils import secure_filename
 from waitress import serve
 from flask_caching import Cache
-from feedgen.feed import FeedGenerator
 import logging
 import os
+import uuid
 from dotenv import load_dotenv
-import requests
-import json
 from openai import OpenAI
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from neo4j import GraphDatabase
+import bcrypt
+from bs4 import BeautifulSoup
+import io
 
 load_dotenv()
 
+DOMAIN_NAME = os.environ.get("DOMAIN_NAME")
+
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY")
+
+FILE_DIR = 'static/files'
+if not os.path.exists(FILE_DIR):
+    os.makedirs(FILE_DIR)
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 app.logger.info('Logging setup complete')
@@ -30,13 +39,9 @@ cache = Cache(
 openai_client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY")
 )
-
-URI = os.environ.get("NEO4J_URI")
-AUTH = (os.environ.get("NEO4J_USERNAME"), os.environ.get("NEO4J_PASSWORD"))
-
-driver = GraphDatabase.driver(URI, auth=AUTH)
-driver.verify_connectivity()
-
+OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBEDDING_MODEL")
+OPENAI_COMPLETION_MODEL = os.environ.get("OPENAI_COMPLETION_MODEL")
+OPENAI_TRANSCRIPTION_MODEL = os.environ.get("OPENAI_TRANSCRIPTION_MODEL")
 
 class Neo4jConnection:
     
@@ -67,38 +72,136 @@ class Neo4jConnection:
                 session.close()
         return response
 
+URI = os.environ.get("NEO4J_URI")
+ADMIN_AUTH = (os.environ.get("NEO4J_ADMIN_USERNAME"), os.environ.get("NEO4J_ADMIN_PASSWORD"))
+READER_AUTH = (os.environ.get("NEO4J_READER_USERNAME"), os.environ.get("NEO4J_READER_PASSWORD"))
+conn = Neo4jConnection(
+    uri=URI, 
+    auth=ADMIN_AUTH           
+)
+
 
 def create_openai_embedding(input):
     response = openai_client.embeddings.create(
         input=input,
-        model="text-embedding-3-small"
+        model=OPENAI_EMBEDDING_MODEL
     )
     return response
 
 
-conn = Neo4jConnection(
-    uri=URI, 
-    auth=AUTH           
-)
+def html_to_text(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    return soup.get_text()
 
-query = """
-    CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
-    FOR (doc:Document)
-    ON (doc.embedding)
-    OPTIONS {indexConfig: {
-        `vector.dimensions`: 1536,
-        `vector.similarity_function`: 'cosine'
-    }}
-"""
-conn.query(
-    query=query,
-    db="neo4j"
-)
+
+def hash_password(password):
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed_password
+
+
+def verify_password(input_password, hashed_password):
+    if isinstance(input_password, str):
+        input_password = input_password.encode('utf-8')
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(input_password, hashed_password)
+
+
+def convert_results(results):
+    nodes = []
+    links = []
+    result_data = []
+
+    node_ids = set()
+
+    for result in results:
+        if result['user_id'] not in node_ids:
+            nodes.append({"title": result['user_name'], "id": result['user_id'], "label": "User"})
+            node_ids.add(result['user_id'])
+
+        for doc in result['documents']:
+            if doc['id'] not in node_ids:
+                nodes.append({"title": doc['title'], "id": doc['id'], "label": "Document"})
+                node_ids.add(doc['id'])
+            links.append({"source": doc['id'], "target": result['user_id']})
+            result_data.append({
+                "title": doc['title'],
+                "id": doc['id'],
+                "content": doc['content'],
+                "created_at": doc['created_at'],
+                "author": doc['author'],
+                "score": doc.get('score', 1),
+            })
+
+    data = {
+        "graph": {
+            "nodes": nodes,
+            "links": links
+        },
+        "results": result_data
+    }
+    
+    return data
+
+
+
+def init_database():
+    init_queries = {
+        "create_vector_index_query": """
+            CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
+            FOR (doc:Document)
+            ON (doc.embedding)
+            OPTIONS {indexConfig: {
+                `vector.dimensions`: 1536,
+                `vector.similarity_function`: 'cosine'
+            }}
+        """
+    }
+
+    for query in init_queries.values():
+        conn.query(query=query)
+
+
+init_database()
+
+
+@app.route('/api/chat/completions', methods=['POST'])
+def api_create_completion():
+    messages = request.json.get('messages')
+    def generate():
+        stream = openai_client.chat.completions.create(
+            model=OPENAI_COMPLETION_MODEL,
+            messages=messages,
+            stream=True
+        )
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                yield chunk.choices[0].delta.content
+    
+    return generate(), {"Content-Type": "text/plain"}
 
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    query = """
+    MATCH (u:User)-[r:CREATED]->(d:Document)
+    WITH u.username AS user_name, elementId(u) AS user_id, d, r
+    ORDER BY d.created_at DESC
+    LIMIT 6
+    RETURN user_name, user_id,
+        COLLECT({
+            id: elementId(d),
+            title: d.title,
+            content: d.content,
+            created_at: d.created_at,
+            author: user_name,
+            rel_type: type(r)
+        }) AS documents
+    """
+    results = conn.query(query=query, db="neo4j")
+    response_data = convert_results(results)
+    return render_template('index.html', data=response_data)
 
 
 @app.route('/search', methods=['GET'])
@@ -106,14 +209,59 @@ def search():
     query = request.args.get('q')
     if not query:
         return redirect(url_for('index'))
+    data = get_documents_data(query)
+    return render_template('search.html', data=data)
+
+
+@app.route('/new', methods=['GET'])
+def create_document():
+    if not 'logged_in' in session or not session['logged_in']:
+        return redirect(url_for('index'))
+    
+    return render_template('create_document.html')
+
+
+@app.route('/docs/<document_id>', methods=['GET'])
+def get_document(document_id):
+    document = get_document_data(document_id)
+    if document is None:
+        return redirect(url_for('index'))
+    return render_template('get_document.html', data=document)
+
+
+@app.route('/api/docs', methods=['GET'])
+def api_list_documents():
+    query = request.args.get('q')
+    data = get_documents_data(query)
+    if data is None:
+        return jsonify({'message': 'No data found'}), 404
+    return jsonify(data)
+
+
+def get_documents_data(query):
+    if not query:
+        return None
     
     openai_response = create_openai_embedding(query)
     
     neo4j_query = """
-        MATCH (doc:Document)
         CALL db.index.vector.queryNodes('document-embeddings', $num_results, $embedding) YIELD node AS similarDocument, score
-        RETURN id(similarDocument) AS nodeId,similarDocument.title AS title, similarDocument.content AS content, score
+        MATCH (u:User)-[r:CREATED]->(d:Document)
+        WHERE d = similarDocument
+        WITH u, d, r, score
+        ORDER BY score DESC
+        WITH u, COLLECT({
+            id: elementId(d), 
+            title: d.title, 
+            content: d.content,
+            created_at: d.created_at, 
+            author: u.username,
+            rel_type: type(r), 
+            score: score
+        }) AS documents
+        RETURN u.username AS user_name, elementId(u) AS user_id, documents
     """
+    
     results = conn.query(
         query=neo4j_query,
         parameters={
@@ -122,36 +270,275 @@ def search():
         },
         db="neo4j"
     )
-    print(results)
-    return render_template('search.html', results=results)
+    data = convert_results(results)
+    data['query'] = query
+    return data
+    
+
+@app.route('/api/docs/<document_id>', methods=['GET'])
+def api_get_document(document_id):
+    document = get_document_data(document_id)
+    if document is None:
+        return jsonify({'message': 'Document not found'}), 404
+    return jsonify(document)
 
 
-@app.route('/create', methods=['POST'])
-def create_document():
+def get_document_data(document_id):
+    query = """
+        MATCH (u:User)-[:CREATED]->(d:Document)
+        WHERE elementId(d) = $document_id
+        RETURN elementId(d) AS id, d.title AS title, d.content AS content, d.created_at AS created_at, u.username AS created_by
+    """
+    results = conn.query(query=query, parameters={'document_id': document_id}, db="neo4j")
+    if not results:
+        return None
+    return {
+        'id': results[0]['id'],
+        'title': results[0]['title'],
+        'content': results[0]['content'],
+        'created_at': results[0]['created_at'],
+        'created_by': results[0]['created_by']
+    }
+
+
+@app.route('/api/docs', methods=['POST'])
+def api_create_document():
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to create documents'}), 403
+    
     data = request.json
 
     if not data or 'title' not in data or 'content' not in data:
-        return jsonify({'error': 'Title and content are required'}), 400
+        return jsonify({'message': 'Title and content are required'}), 400
 
     title = data['title']
     content = data['content']
-    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    created_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
-    response = create_openai_embedding(f"{title} {content}")
+    response = create_openai_embedding(f"{title} {html_to_text(content)}")
 
     query = """
+        MATCH (u:User) WHERE elementId(u) = $user_id
         CREATE (a:Document {title: $title, content: $content, embedding: $embedding, created_at: $created_at})
-        RETURN a
+        CREATE (u)-[:CREATED]->(a)
+        RETURN elementId(a) AS id
     """
-    conn.query(
+    results = conn.query(
         query=query,
-        parameters={'title': title, 'content': content, 'embedding': response.data[0].embedding, 'created_at': created_at},
+        parameters={
+            'user_id': session['id'],
+            'title': title,
+            'content': content,
+            'embedding': response.data[0].embedding,
+            'created_at': created_at
+        },
         db="neo4j"
     )
     
-    return jsonify({'message': 'Document created successfully'}), 201
+    return jsonify({'id': results[0]['id']}), 201
 
 
+@app.route('/api/docs/<document_id>', methods=['PUT'])
+def api_update_document(document_id):
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to update documents'}), 403
+    
+    data = request.json
+    if not data or 'title' not in data or 'content' not in data:
+        return jsonify({'message': 'Title and content are required'}), 400
+    
+    title = data['title']
+    content = data['content']
+    
+    response = create_openai_embedding(f"{title} {html_to_text(content)}")
+    
+    query = """
+        MATCH (a:Document) WHERE elementId(a) = $document_id
+        SET a.title = $title, a.content = $content, a.embedding = $embedding
+        RETURN a
+    """
+    result = conn.query(
+        query=query,
+        parameters={
+            'document_id': document_id,
+            'title': title,
+            'content': content,
+            'embedding': response.data[0].embedding
+        },
+        db="neo4j"
+    )
+    
+    if not result:
+        return jsonify({'message': 'Document not found'}), 404
+    
+    return jsonify({'message': 'Document updated successfully'}), 200
+
+
+@app.route('/api/docs/<document_id>', methods=['DELETE'])
+def api_delete_document(document_id):
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to delete documents'}), 403
+    
+    query = """
+        MATCH (a:Document) WHERE elementId(a) = $document_id
+        WITH a
+        DETACH DELETE a
+        RETURN a
+    """
+    result = conn.query(
+        query=query,
+        parameters={'document_id': document_id},
+        db="neo4j"
+    )
+    
+    if not result:
+        return jsonify({'message': 'Document not found'}), 404
+    
+    return jsonify({'message': 'Document deleted successfully'}), 200
+
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    if not username or not password:
+        return jsonify({'message': 'Username and password are required'}), 400
+    existing_user_query = """
+        MATCH (u:User {username: $username})
+        RETURN elementId(u) AS id, u.username AS username, u.password AS password
+    """
+    existing_user = conn.query(
+        query=existing_user_query,
+        parameters={'username': username},
+        db="neo4j"
+    )
+    if not existing_user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    hashed_password = existing_user[0][2]
+    if not verify_password(password, hashed_password):
+        return jsonify({'message': 'Incorrect password'}), 401
+
+    session['logged_in'] = True
+    session['id'] = existing_user[0][0]
+    session['username'] = existing_user[0][1]
+    return jsonify({'message': 'Login successful'}), 200
+
+
+@app.route('/api/signup', methods=['POST'])
+def api_signup():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    if not username or not password:
+        return jsonify({'message': 'Username and password are required'}), 400
+    
+    existing_user_query = """
+        MATCH (u:User {username: $username})
+        RETURN count(u) > 0 AS exists
+    """
+    existing_user = conn.query(
+        query=existing_user_query,
+        parameters={'username': username},
+        db="neo4j"
+    )[0][0]
+    if existing_user:
+        return jsonify({'message': 'Username already exists'}), 409
+    
+    hashed_password = hash_password(password)
+    query = """
+        CREATE (u:User {username: $username, password: $password})
+        RETURN elementId(u) AS id, u.username AS username
+    """
+    
+    user = conn.query(
+        query=query,
+        parameters={
+            'username': username,
+            'password': hashed_password.decode('utf-8')
+        },
+        db="neo4j"
+    )
+    session['logged_in'] = True
+    session['id'] = user[0][0]
+    session['username'] = user[0][1]
+    return jsonify({'message': 'Signup successful'}), 201
+
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You are not logged in'}), 401
+    session.clear()
+    return jsonify({'message': 'Logout successful'}), 200
+
+
+@app.route('/api/files/<file_id>', methods=['GET'])
+def api_get_file(file_id):
+    file_path = os.path.join(FILE_DIR, file_id)
+    if not os.path.exists(file_path):
+        return jsonify({'message': 'File not found'}), 404
+    return send_from_directory(FILE_DIR, file_id, as_attachment=True)
+
+
+@app.route('/api/files', methods=['POST'])
+def api_create_file():
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to upload files'}), 403
+    
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'message': 'File is required'}), 400
+    
+    original_filename = secure_filename(file.filename)
+    filename_base, file_extension = os.path.splitext(original_filename)
+
+    random_uuid = uuid.uuid4().hex
+    new_filename = f"{filename_base}_{random_uuid}{file_extension}"
+    
+    file_path = os.path.join(FILE_DIR, new_filename)
+    file.save(file_path)
+    
+    return jsonify({'id': new_filename}), 201
+
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+def api_delete_file(file_id):
+    if not 'logged_in' in session or not session['logged_in']:
+        return jsonify({'message': 'You do not have permission to delete files'}), 403
+    
+    file_path = os.path.join(FILE_DIR, file_id)
+    if not os.path.exists(file_path):
+        return jsonify({'message': 'File not found'}), 404
+    
+    os.remove(file_path)
+    return jsonify({'message': 'File deleted successfully'}), 200
+
+
+@app.route('/api/audio/transcriptions', methods=['POST'])
+def api_create_transcription():
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'message': 'File is required'}), 400
+
+    allowed_formats = ['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']
+    file_extension = file.filename.split('.')[-1].lower()
+    if file_extension not in allowed_formats:
+        return jsonify({'message': f"Unsupported file format. Supported formats: {allowed_formats}, got '{file_extension}'"}), 400
+
+    buffer = io.BytesIO(file.read())
+    buffer.name = file.filename
+    
+    try:
+        transcript = openai_client.audio.transcriptions.create(
+            model="whisper-1",
+            file=buffer
+        )
+        return jsonify({'text': transcript.text}), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 400
+    
+
+    
 def check_cache(cache_key):
     cached_data = cache.get(cache_key)
     if cached_data:

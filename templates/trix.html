@@ -1,0 +1,47 @@
+<form id="form-document" onsubmit="return validateDocumentForm();">
+    <div class="mb-3">
+        <label for="input-document-title" class="fs-4">Title</label>
+        <input type="text" class="form-control form-control-lg"
+            id="input-document-title">
+    </div>
+    <div class="mb-3">
+        <label for="input-document-content" class="fs-4">Content</label>
+        <input id="input-hidden-trix" type="hidden" name="content">
+        <trix-editor input="input-hidden-trix" id="input-document-content"></trix-editor>
+    </div>
+    
+    <div id="document-actions" class="row gap-3 justify-content-center">
+        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-back"><i class="bi bi-arrow-left"></i> Back
+        </button>
+        {% if 'logged_in' in session and session['logged_in'] %}
+        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-delete-document"><i class="bi bi-trash"></i> Delete
+        </button>
+        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-cancel-document"><i class="bi bi-x-lg"></i> Discard
+        </button>
+        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-edit-document"><i class="bi bi-pencil"></i> Edit
+        </button>
+        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-save-document"><i class="bi bi-floppy2-fill"></i> Save
+        </button>
+        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-create-document"><i class="bi bi-plus-lg"></i> Create
+        </button>
+        {% endif %}
+    </div>
+</form>
+
+<div id="alert-content-missing" class="alert alert-warning d-none" role="alert">
+    Please fill in the title and content.
+</div>
+
+<div id="spinner-loading" class="spinner-border text-primary d-none" role="status">
+  <span class="sr-only">Loading...</span>
+</div>
+
+<div id="alert-submission-success" class="alert alert-success d-none" role="alert">
+    Request successfully processed! Redirecting...
+</div>
+
+<div id="alert-submission-error" class="alert alert-danger d-none" role="alert">
+    An error occurred while saving the document. Please try again.
+</div>
+
+<script src="{{ url_for('static',filename='scripts/trix.js') }}"></script>

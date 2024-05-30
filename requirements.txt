@@ -5,3 +5,13 @@ requests==2.31.0
 openai==1.12.0
 waitress==2.1.2
 neo4j==5.20.0
+bcrypt==4.1.2
+beautifulsoup4==4.12.3
+torch==2.3.0+cu121 --find-links https://download.pytorch.org/whl/cu121
+torchvision==0.18.0+cu121 --find-links https://download.pytorch.org/whl/cu121
+torchaudio==2.3.0+cu121 --find-links https://download.pytorch.org/whl/cu121
+torch-geometric==2.5.3
+torch-sparse==0.6.18
+torch-scatter==2.1.2
+torch-cluster==1.6.3
+torch-spline-conv==1.2.2

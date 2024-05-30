@@ -1,0 +1,138 @@
+<div>
+    <h2 id="visualization"><i class="bi bi-share"></i> Visualization <a class="anchor-link" href="#visualization" aria-label="Link to this section: Visualization">#</a></h2>
+    <div id="alert-graph-data-missing" class="alert alert-warning d-none" role="alert">
+        No graph data available.
+    </div>
+    <div id="viz-container" class="card my-3 vh-75">
+        <div class="card-body">
+            <svg id="viz"></svg>
+        </div>
+    </div>
+</div>
+
+<script>
+    const searchResponse = {{ data | tojson | safe }};
+    const vizContainer = document.querySelector('#viz-container');
+
+    if (searchResponse.graph.nodes.length > 0 && searchResponse.graph.links.length > 0) {
+        const nodes = searchResponse.graph.nodes;
+        const links = searchResponse.graph.links;
+        
+        const viz = d3.select('#viz')
+
+        let width = viz.node().getBoundingClientRect().width;
+        let height = viz.node().getBoundingClientRect().height;
+
+        const simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+            .force('charge', d3.forceManyBody().strength(-200))
+            .force('center', d3.forceCenter(width / 2, height / 2));
+        
+        updateDimensions();
+
+        const link = viz.append('g')
+            .selectAll('line')
+            .data(links)
+            .enter().append('line')
+            .style('stroke', '#aaa');
+
+        const node = viz.append('g')
+            .attr('class', 'nodes')
+            .selectAll('g')
+            .data(nodes)
+            .enter().append('g')
+
+        node.each(function(d) {
+            const nodeElement = d3.select(this);
+            if (d.label === 'Document') {
+                const link = nodeElement.append('a')
+                    .attr('xlink:href', d => `/docs/${d.id}`);
+                appendNodeContent(link);
+            } else {
+                appendNodeContent(nodeElement);
+            }
+        });
+
+        const drag_handler = d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended);
+        
+        drag_handler(node);
+
+        function appendNodeContent(container) {
+            container.append('circle')
+                .attr('r', 20)
+                .attr('fill', d => d.label === 'User' ? 'steelblue' : 'brown');
+
+            container.append('text')
+                .text(d => d.title)
+                .attr('x', 25)
+                .attr('y', 6)
+                .style('font-size', '18px')
+                .style('font-family', 'Arial, sans-serif');
+            
+            container.append('foreignObject')
+                .attr('width', 40)
+                .attr('height', 40)
+                .attr('x', -12)
+                .attr('y', -19)
+                .html(d => `<i class="bi ${d.label === 'User' ? 'bi-person' : 'bi-file-text'}" style="font-size:24px;color:white"></i>`);
+
+
+            container.append('title')
+                .text(d => d.title);
+        }
+
+        function updateDimensions() {
+            width = viz.node().getBoundingClientRect().width;
+            height = viz.node().getBoundingClientRect().height;
+            simulation.force('center', d3.forceCenter(width / 2, height / 2));
+            simulation.alpha(0.3).restart();
+        }
+
+        node.append('title')
+            .text(d => d.title);
+
+        simulation.nodes(nodes).on('tick', ticked);
+        simulation.force('link').links(links);
+        
+        window.addEventListener('resize', updateDimensions);
+
+        function ticked() {
+            link
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+
+            node
+                .attr('transform', d => {
+                    d.x = Math.max(20, Math.min(width - 40, d.x));
+                    d.y = Math.max(20, Math.min(height - 40, d.y));
+                    return `translate(${d.x}, ${d.y})`;
+                });
+        }
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+    } else {
+        setElementVisibility({
+            '#alert-graph-data-missing': true
+        });
+    }
+</script>

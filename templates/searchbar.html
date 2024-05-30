@@ -1,0 +1,13 @@
+<form autocomplete="off" onsubmit="return validateSearchForm()" id="form-search" name="form-search">
+    <div class="input-group mb-3">
+        <span class="input-group-text" id="basic-addon1">
+            <i class="bi bi-search"></i>
+        </span>
+        <input type="text" class="form-control" id="input-query" placeholder="What's on your mind?" aria-label="Search" aria-describedby="basic-addon1" name="q" value="{{ data.query }}">
+        <button type="submit" class="btn btn-primary" id="btn-get-matches">Search</button>
+    </div>
+</form>
+
+<div id="alert-search" class="alert alert-warning d-none" role="alert">
+    Please input a search term to get the matches.
+</div>
