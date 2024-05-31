@@ -15,18 +15,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
     <script>
-        const url_signup = {{ url_for("api_signup")|tojson }}
-        const url_login = {{ url_for("api_login")|tojson }}
-        const url_logout = {{ url_for("api_logout")|tojson }}
-        const url_list_documents = {{ url_for("api_list_documents")|tojson }}
-        const url_create_document = {{ url_for("api_create_document")|tojson }}
-        const url_update_document = {{ url_for("api_update_document", document_id="DOCUMENT_ID")|tojson }}
-        const url_delete_document = {{ url_for("api_delete_document", document_id="DOCUMENT_ID")|tojson }}
-        const url_create_completion = {{ url_for("api_create_completion")|tojson }}
-        const url_get_file = {{ url_for("api_get_file", file_id="FILE_ID")|tojson }}
-        const url_create_file = {{ url_for("api_create_file")|tojson }}
-        const url_delete_file = {{ url_for("api_delete_file", file_id="FILE_ID")|tojson }}
-        const url_create_transcription = {{ url_for("api_create_transcription")|tojson }}
+        const url_signup = {{ url_for("auth.api_signup")|tojson }}
+        const url_login = {{ url_for("auth.api_login")|tojson }}
+        const url_logout = {{ url_for("auth.api_logout")|tojson }}
+        const url_list_documents = {{ url_for("main.api_list_documents")|tojson }}
+        const url_create_document = {{ url_for("main.api_create_document")|tojson }}
+        const url_update_document = {{ url_for("main.api_update_document", document_id="DOCUMENT_ID")|tojson }}
+        const url_delete_document = {{ url_for("main.api_delete_document", document_id="DOCUMENT_ID")|tojson }}
+        const url_create_completion = {{ url_for("main.api_create_completion")|tojson }}
+        const url_get_file = {{ url_for("files.api_get_file", file_id="FILE_ID")|tojson }}
+        const url_create_file = {{ url_for("files.api_create_file")|tojson }}
+        const url_delete_file = {{ url_for("files.api_delete_file", file_id="FILE_ID")|tojson }}
+        const url_create_transcription = {{ url_for("main.api_create_transcription")|tojson }}
 
         function setElementVisibility(elements) {
             for (const [key, visible] of Object.entries(elements)) {
