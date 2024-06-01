@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, request, session, jsonify
 from db.queries import list_nodes, get_node, list_node_labels, get_graph_neighborhood
-from utils.helpers import create_openai_embedding, html_to_text, convert_results, create_openai_completion, create_openai_transcription
-from datetime import datetime, timezone
+from utils.helpers import create_openai_embedding, convert_results, create_openai_completion, create_openai_transcription
+import json
 
 main_bp = Blueprint('main', __name__)
 
@@ -21,34 +21,27 @@ def index():
 def search():
     page = int(request.args.get('page', 1))
     page_size = int(request.args.get('page_size', 10))
+    query = request.args.get('q', '')
+    filters = json.loads(request.args['filter'])
     
-    filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size']}
+    labels = list_node_labels()
+    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size)
     
     data = {
-        "results": list_nodes(filters, page, page_size)
+        'results': nodes,
+        'graph': get_graph_neighborhood([node['id'] for node in nodes]),
+        'labels': labels,
     }
-    print(data)
     return render_template('search.html', data=data)
-
-
-@main_bp.route('/ask', methods=['GET'])
-def ask():
-    query = request.args.get('q')
-    if not query:
-        return redirect(url_for('main.index'))
-    
-    openai_response = create_openai_embedding(query)
-    results = list_nodes(openai_response.data[0].embedding, 5)
-    data = convert_results(results)
-    return render_template('ask.html', data=data)
 
 
 @main_bp.route('/items/<item_id>', methods=['GET'])
 def get_item(item_id):
-    item = get_node(item_id)
-    if item is None:
+    data = get_node(item_id)
+    if data is None:
         return redirect(url_for('main.index'))
-    return render_template('get_item.html', data=item)
+    data['graph'] = get_graph_neighborhood([item_id])
+    return render_template('get_item.html', data=data)
 
 
 @main_bp.route('/new', methods=['GET'])

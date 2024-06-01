@@ -14,7 +14,7 @@
     const searchResponse = {{ data | tojson | safe }};
     const vizContainer = document.querySelector('#viz-container');
 
-    if (searchResponse.graph.nodes.length > 0) {
+    if ((searchResponse?.graph?.nodes ?? []).length > 0) {
         const nodes = searchResponse.graph.nodes;
         const links = searchResponse.graph.links;
         

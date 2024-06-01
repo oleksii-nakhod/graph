@@ -1,11 +1,11 @@
 from flask import Blueprint, request, jsonify
 from models.neo4j_connection import conn
 from utils.helpers import create_openai_embedding
-from db.queries import get_node, list_nodes, create_node, create_nodes_in_batches, list_node_labels, update_node, delete_node
+from db.queries import get_node, list_nodes, create_node, create_nodes_in_batches, list_node_labels, update_node, delete_node, list_indexes, create_index
 
 graph_bp = Blueprint('graph', __name__)
 
-reserved_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'username', 'password']
+reserved_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'username', 'password', 'embedding']
 hidden_fields = ['password']
 reserved_labels = ['User']
 
@@ -25,10 +25,10 @@ def api_get_node(id):
 def api_list_nodes():
     page = int(request.args.get('page', 1))
     page_size = int(request.args.get('page_size', 10))
-    
     filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size']}
+    query = request.args.get('q', "")
     
-    nodes = list_nodes(filters, page, page_size)
+    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size)
     for node in nodes:
         for field in hidden_fields:
             if field in node:
@@ -59,7 +59,6 @@ def api_create_node():
 
 @graph_bp.route('/api/nodes/<node_id>', methods=['PUT'])
 def api_update_node(node_id):
-    print(node_id)
     properties = request.json
     labels = properties.get('labels', [])
     
@@ -100,6 +99,12 @@ def api_list_node_labels():
     return jsonify({"labels": labels})
 
 
-@graph_bp.route('/api/edges', methods=['POST'])
-def api_create_edge():
-    pass
+@graph_bp.route('/api/indexes', methods=['POST'])
+def api_create_index():
+    data = request.json
+    if 'label' not in data:
+        return jsonify({'message': 'Label is required'}), 400
+    index = create_index(data['label'])
+    if index is None:
+        return jsonify({'message': 'Index not created'}), 500
+    return jsonify({'message': 'Index created successfully'}), 201

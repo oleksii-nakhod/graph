@@ -34,49 +34,6 @@ function convertUtcToLocal() {
     });
 }
 
-async function getAnswer() {
-    const systemMessage = {
-        role: 'system',
-        content: "Answer the user query with the information from their internal knowledge base. If this knowledge conflicts with yours, give preference to the user's knowledge. If you don't know the answer, you can say 'I don't know'. Steer the conversation towards the user's knowledge. Never mention external knowledge sources. Instead of providing audio files, give them transcription. Instead of providing images, give them description."
-    }
-
-    const internalKnowledgeMessages = searchResponse.results.map(result => {
-        return {
-            role: 'assistant',
-            content: `Title: ${result.title}\nContent: ${htmlToPlain(result.content)}`
-        };
-    });
-
-    const userMessage = {
-        role: 'user',
-        content: searchResponse.query
-    };
-
-    const messages = [...internalKnowledgeMessages, userMessage, systemMessage];
-    
-    const response = await fetch(url_create_completion, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            messages
-        })
-    });
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let content = '';
-    while (true) {
-        const { done, value } = await reader.read();
-        content += decoder.decode(value);
-        answerContent.innerHTML = marked.parse(content);
-        if (done) {
-            break;
-        }
-    }
-}
 
 updateProgressBars();
 convertUtcToLocal();
-getAnswer();

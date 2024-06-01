@@ -36,7 +36,7 @@ def api_signup():
         return jsonify({'message': 'Username already exists'}), 409
     
     hashed_password = hash_password(password)
-    user = create_node({'username': username, 'password': hashed_password, 'labels': ['User'], 'title': username})
+    user = create_node({'username': username, 'password': hashed_password, 'labels': ['User'], 'title': username, 'slug': 'usr'})
     session['logged_in'] = True
     session['id'] = user['id']
     session['username'] = username

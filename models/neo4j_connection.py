@@ -1,4 +1,5 @@
 from neo4j import GraphDatabase
+from config import Config
 
 class Neo4jConnection:
     def __init__(self, uri, auth):
@@ -7,6 +8,7 @@ class Neo4jConnection:
         self.__driver = None
         try:
             self.__driver = GraphDatabase.driver(self.__uri, auth=(self.__auth))
+            self.create_indexes()
         except Exception as e:
             print("Failed to create the driver:", e)
         
@@ -27,8 +29,31 @@ class Neo4jConnection:
             if session is not None:
                 session.close()
         return response
-
-from config import Config
+    
+    def create_indexes(self):
+        index_queries = [
+            f"""
+            CREATE VECTOR INDEX `item_embedding_index` IF NOT EXISTS
+            FOR (n:Item)
+            ON (n.embedding)
+            OPTIONS {{indexConfig: {{
+                `vector.dimensions`: {Config.OPENAI_EMBEDDING_DIMENSIONS},
+                `vector.similarity_function`: 'cosine'
+            }}}}
+            """,
+            """
+            CREATE INDEX item_composite_index IF NOT EXISTS
+            FOR (n:Item)
+            ON (n.id, n.title, n.created_at)
+            """
+        ]
+        
+        for query in index_queries:
+            try:
+                self.query(query)
+                print(f"Index created successfully or already exists for query: {query.strip().split()[2]}")
+            except Exception as e:
+                print(f"Failed to create index for query: {query.strip().split()[2]}, error: {e}")
 
 conn = Neo4jConnection(
     uri=Config.NEO4J_URI, 

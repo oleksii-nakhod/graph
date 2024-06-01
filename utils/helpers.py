@@ -1,4 +1,3 @@
-import bcrypt
 from bs4 import BeautifulSoup
 from openai import OpenAI
 from config import Config
@@ -6,16 +5,33 @@ from io import BytesIO
 from models.neo4j_connection import conn
 import shortuuid
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from flask_caching import Cache
 
 openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
+cache = Cache()
+def init_cache(app):
+    cache.init_app(app, config={
+        'CACHE_TYPE': 'FileSystemCache',
+        'CACHE_DIR': 'cache',
+        'CACHE_DEFAULT_TIMEOUT': 86400
+    })
+
+def check_cache(cache_key):
+    return cache.get(cache_key)
+
 def create_openai_embedding(input):
-    response = openai_client.embeddings.create(
+    cache_key = f'openai_embedding_{input}'
+    cached_data = check_cache(cache_key)
+    if cached_data:
+        return cached_data
+    embedding = openai_client.embeddings.create(
         input=input,
         model=Config.OPENAI_EMBEDDING_MODEL
-    )
-    return response
+    ).data[0].embedding
+    cache.set(cache_key, embedding)
+    return embedding
+
 
 def create_openai_completion(messages):
     def generate():

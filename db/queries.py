@@ -1,6 +1,7 @@
 from models.neo4j_connection import conn
-from utils.helpers import generate_id
+from utils.helpers import generate_id, create_openai_embedding
 from datetime import datetime, timezone
+from config import Config
 
 
 def get_node(id):
@@ -21,46 +22,51 @@ def get_node(id):
         return None
 
 
-def list_nodes(filters=None, page=1, page_size=10):
+def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at', sort_order='DESC'):
     skip = (page - 1) * page_size
-    
     label = filters.pop('label', None) if filters else None
-    
     where_clause = ""
     if filters:
         filter_conditions = []
         for key, value in filters.items():
-            if key == 'start_date':
-                filter_conditions.append(f"n.created_at >= datetime(${key})")
-            elif key == 'end_date':
-                filter_conditions.append(f"n.created_at <= datetime(${key})")
-            else:
-                filter_conditions.append(f"n.{key} = ${key}")
+            filter_conditions.append(f"n.{key} = ${key}")
         where_clause = "WHERE " + " AND ".join(filter_conditions)
     
     label_clause = f":{label}" if label else ""
     
-    query = f"""
-        MATCH (n{label_clause})
+    
+    neo4j_query = f"""
+        MATCH (n {label_clause})
         {where_clause}
-        RETURN properties(n) AS node, labels(n) AS labels
-        ORDER BY n.created_at DESC
-        SKIP $skip LIMIT $limit
+        WITH n
+
+        CALL db.index.vector.queryNodes('item_embedding_index', {page * page_size * 2}, $embedding) 
+        YIELD node AS similarDocument, score
+        WITH DISTINCT similarDocument, score, properties(similarDocument) AS nodeProperties, labels(similarDocument) AS nodeLabels
+
+        ORDER BY score DESC, similarDocument.{sort_by} {sort_order}
+        WITH DISTINCT similarDocument, nodeProperties, nodeLabels, score
+
+        WITH collect({{nodeProperties: nodeProperties, nodeLabels: nodeLabels, score: score}}) AS results
+        UNWIND results[..{page_size}] AS result
+        RETURN result.nodeProperties, result.nodeLabels, result.score
     """
     
     parameters = filters if filters else {}
-    parameters.update({"skip": skip, "limit": page_size})
+    parameters['embedding'] = create_openai_embedding(query)
     
     records = conn.query(
-        query=query,
+        query=neo4j_query,
         parameters=parameters,
         db="neo4j"
     )
-    
     results = []
     for record in records:
-        node = record['node']
-        node['labels'] = record['labels']
+        node = record['nodeProperties']
+        node['labels'] = record['nodeLabels']
+        node['score'] = record['score']
+        node.pop('embedding', None)
+        
         results.append(node)
     
     return results
@@ -79,6 +85,9 @@ def create_node(properties):
     time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     properties['created_at'] = time_now
     properties['updated_at'] = time_now
+    properties['embedding'] = create_openai_embedding(f"{title} {content}")
+    
+    labels.append('Item')
     
     query = f"""
         CREATE (n:{':'.join(labels)} $properties)
@@ -109,6 +118,7 @@ def update_node(id, properties):
     properties['content'] = content
     time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     properties['updated_at'] = time_now
+    properties['embedding'] = create_openai_embedding(f"{title} {content}")
     
     query = f"""
         MATCH (n) WHERE n.id = $id
@@ -208,12 +218,26 @@ def get_graph_neighborhood(ids):
     return records[0]['graph'] if records else None
 
 
-def get_recent_nodes():
+def list_indexes():
     query = """
-        MATCH (n)
-        RETURN n.id AS id, n.title AS title, n.created_at AS created_at
-        ORDER BY n.created_at DESC
-        LIMIT 5
+        SHOW INDEXES
+    """
+    records = conn.query(
+        query=query,
+        db="neo4j"
+    )
+    return records
+
+
+def create_index(label, property='embedding'):
+    query = f"""
+        CREATE VECTOR INDEX `{label}_embeddings` IF NOT EXISTS
+        FOR (n:{label})
+        ON (n.{property})
+        OPTIONS {{indexConfig: {{
+            `vector.dimensions`: { Config.OPENAI_EMBEDDING_DIMENSIONS },
+            `vector.similarity_function`: 'cosine'
+        }}}}
     """
     records = conn.query(
         query=query,
