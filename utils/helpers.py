@@ -5,6 +5,8 @@ from config import Config
 from io import BytesIO
 from models.neo4j_connection import conn
 import shortuuid
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
@@ -45,17 +47,11 @@ def html_to_text(html_content):
 
 
 def hash_password(password):
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed_password
+    return generate_password_hash(password)
 
 
-def verify_password(input_password, hashed_password):
-    if isinstance(input_password, str):
-        input_password = input_password.encode('utf-8')
-    if isinstance(hashed_password, str):
-        hashed_password = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(input_password, hashed_password)
+def verify_password(hashed_password, input_password):
+    return check_password_hash(hashed_password, input_password)
 
 
 def convert_results(results):
@@ -70,7 +66,7 @@ def convert_results(results):
             nodes.append({"title": result['user_name'], "id": result['user_id'], "label": "User"})
             node_ids.add(result['user_id'])
 
-        for doc in result['documents']:
+        for doc in result['items']:
             if doc['id'] not in node_ids:
                 nodes.append({"title": doc['title'], "id": doc['id'], "label": "Document"})
                 node_ids.add(doc['id'])

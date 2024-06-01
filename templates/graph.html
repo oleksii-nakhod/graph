@@ -1,5 +1,5 @@
 <div>
-    <h2 id="visualization"><i class="bi bi-share"></i> Visualization <a class="anchor-link" href="#visualization" aria-label="Link to this section: Visualization">#</a></h2>
+    <h2 id="visualization" class="pt-4"><i class="bi bi-share"></i> Visualization <a class="anchor-link" href="#visualization" aria-label="Link to this section: Visualization">#</a></h2>
     <div id="alert-graph-data-missing" class="alert alert-warning d-none" role="alert">
         No graph data available.
     </div>
@@ -14,7 +14,7 @@
     const searchResponse = {{ data | tojson | safe }};
     const vizContainer = document.querySelector('#viz-container');
 
-    if (searchResponse.graph.nodes.length > 0 && searchResponse.graph.links.length > 0) {
+    if (searchResponse.graph.nodes.length > 0) {
         const nodes = searchResponse.graph.nodes;
         const links = searchResponse.graph.links;
         
@@ -27,6 +27,8 @@
             .force('link', d3.forceLink(links).id(d => d.id).distance(100))
             .force('charge', d3.forceManyBody().strength(-200))
             .force('center', d3.forceCenter(width / 2, height / 2));
+
+        const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
         
         updateDimensions();
 
@@ -44,13 +46,9 @@
 
         node.each(function(d) {
             const nodeElement = d3.select(this);
-            if (d.label === 'Document') {
-                const link = nodeElement.append('a')
-                    .attr('xlink:href', d => `/docs/${d.id}`);
-                appendNodeContent(link);
-            } else {
-                appendNodeContent(nodeElement);
-            }
+            const link = nodeElement.append('a')
+                .attr('xlink:href', d => `/items/${d.id}`);
+            appendNodeContent(link);
         });
 
         const drag_handler = d3.drag()
@@ -63,7 +61,7 @@
         function appendNodeContent(container) {
             container.append('circle')
                 .attr('r', 20)
-                .attr('fill', d => d.label === 'User' ? 'steelblue' : 'brown');
+                .attr('fill', d => colorScale(d.label));
 
             container.append('text')
                 .text(d => d.title)
@@ -101,10 +99,10 @@
 
         function ticked() {
             link
-                .attr('x1', d => d.source.x)
-                .attr('y1', d => d.source.y)
-                .attr('x2', d => d.target.x)
-                .attr('y2', d => d.target.y);
+                .attr('x1', d => d.src.x)
+                .attr('y1', d => d.src.y)
+                .attr('x2', d => d.dst.x)
+                .attr('y2', d => d.dst.y);
 
             node
                 .attr('transform', d => {

@@ -8,6 +8,12 @@
     </div>
 </form>
 
+<div id="badges">
+    {% for label in data.labels %}
+        <a href="{{ url_for('main.search') }}?label={{ label }}"><span class="badge rounded-pill text-bg-primary">{{ label }}</span></a>
+    {% endfor %}
+</div>
+
 <div id="alert-search" class="alert alert-warning d-none" role="alert">
     Please input a search term to get the matches.
 </div>

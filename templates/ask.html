@@ -4,19 +4,22 @@
 
 {% include 'searchbar.html' %}
 
+<h2 id="answer"><i class="bi bi-check-circle"></i> Answer <a class="anchor-link" href="#answer" aria-label="Link to this section: Answer">#</a></h2>
+
+<div class="card my-3">
+    <div class="card-body">
+        <h3 class="card-title"><i class="bi bi-chat"></i> LLM </h3>
+        <div id="answer-content" class="card-text">Fetching your answer...</div>
+    </div>
+</div>
+
 <h2 id="source"><i class="bi bi-file-earmark-richtext"></i> Search results <a class="anchor-link" href="#source" aria-label="Link to this section: Source">#</a></h2>
 
 {% if data.results %}
     {% for node in data.results %}
         <div class="card my-3">
             <div class="card-body">
-                <a href="/items/{{ node.id }}" class="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"><h3 class="card-title">
-                    {% if node.title %}
-                        {{ node.title }}
-                    {% else %}
-                        {{ node.labels[0] }} {{ node.id }}
-                    {% endif %}
-                </h3></a>
+                <a href="/docs/{{ node.id }}" class="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"><h3 class="card-title">{{ node.title }}</h3></a>
                 <h4 class="card-subtitle mb-2 text-body-secondary">
                     <div class="progress" style="max-width: 200px; max-height: 25px;">
                         <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="1" data-score="{{ node.score }}"></div>
@@ -27,14 +30,10 @@
             <div class="card-footer">
                 <div class="row">
                     <div class="col">
-                        {% if node.created_at %}
                         <i class="bi bi-calendar"></i> <small class="text-body-secondary datetime" data-datetime="{{ node.created_at }}">{{ node.created_at }}</small>
-                        {% endif %}
                     </div>
                     <div class="col text-end">
-                        {% if node.created_by %}
-                        <i class="bi bi-person"></i> <small class="text-body-secondary">{{ node.created_by }}</small>
-                        {% endif %}
+                        <i class="bi bi-person"></i> <small class="text-body-secondary">{{ node.author }}</small>
                     </div>
                 </div>
             </div>

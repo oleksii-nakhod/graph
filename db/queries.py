@@ -1,157 +1,7 @@
 from models.neo4j_connection import conn
 from utils.helpers import generate_id
+from datetime import datetime, timezone
 
-reserved_properties = ['id', 'created_at', 'updated_at']
-
-def create_vector_index():
-    query = """
-        CREATE VECTOR INDEX `document-embeddings` IF NOT EXISTS
-        FOR (doc:Document)
-        ON (doc.embedding)
-        OPTIONS {indexConfig: {
-            `vector.dimensions`: 1536,
-            `vector.similarity_function`: 'cosine'
-        }}
-    """
-    conn.query(query=query)
-
-def get_recent_documents():
-    query = """
-    MATCH (u:User)-[r:CREATED]->(d:Document)
-    WITH u.username AS user_name, elementId(u) AS user_id, d, r
-    ORDER BY d.created_at DESC
-    LIMIT 6
-    RETURN user_name, user_id,
-        COLLECT({
-            id: elementId(d),
-            title: d.title,
-            content: d.content,
-            created_at: d.created_at,
-            author: user_name,
-            rel_type: type(r)
-        }) AS documents
-    """
-    return conn.query(query=query, db="neo4j")
-
-def search_documents(embedding, num_results):
-    query = """
-        CALL db.index.vector.queryNodes('document-embeddings', $num_results, $embedding) YIELD node AS similarDocument, score
-        MATCH (u:User)-[r:CREATED]->(d:Document)
-        WHERE d = similarDocument
-        WITH u, d, r, score
-        ORDER BY score DESC
-        WITH u, COLLECT({
-            id: elementId(d), 
-            title: d.title, 
-            content: d.content,
-            created_at: d.created_at, 
-            author: u.username,
-            rel_type: type(r), 
-            score: score
-        }) AS documents
-        RETURN u.username AS user_name, elementId(u) AS user_id, documents
-    """
-    return conn.query(
-        query=query,
-        parameters={
-            'embedding': embedding,
-            'num_results': num_results
-        },
-        db="neo4j"
-    )
-
-def get_document_by_id(document_id):
-    query = """
-        MATCH (u:User)-[:CREATED]->(d:Document)
-        WHERE elementId(d) = $document_id
-        RETURN elementId(d) AS id, d.title AS title, d.content AS content, d.created_at AS created_at, u.username AS created_by
-    """
-    return conn.query(query=query, parameters={'document_id': document_id}, db="neo4j")
-
-def create_document(user_id, title, content, embedding, created_at):
-    query = """
-        MATCH (u:User) WHERE elementId(u) = $user_id
-        CREATE (a:Document {title: $title, content: $content, embedding: $embedding, created_at: $created_at})
-        CREATE (u)-[:CREATED]->(a)
-        RETURN elementId(a) AS id
-    """
-    return conn.query(
-        query=query,
-        parameters={
-            'user_id': user_id,
-            'title': title,
-            'content': content,
-            'embedding': embedding,
-            'created_at': created_at
-        },
-        db="neo4j"
-    )
-
-def update_document(document_id, title, content, embedding):
-    query = """
-        MATCH (a:Document) WHERE elementId(a) = $document_id
-        SET a.title = $title, a.content = $content, a.embedding = $embedding
-        RETURN a
-    """
-    return conn.query(
-        query=query,
-        parameters={
-            'document_id': document_id,
-            'title': title,
-            'content': content,
-            'embedding': embedding
-        },
-        db="neo4j"
-    )
-
-def delete_document(document_id):
-    query = """
-        MATCH (a:Document) WHERE elementId(a) = $document_id
-        WITH a
-        DETACH DELETE a
-        RETURN a
-    """
-    return conn.query(
-        query=query,
-        parameters={'document_id': document_id},
-        db="neo4j"
-    )
-
-def get_user_by_username(username):
-    query = """
-        MATCH (u:User {username: $username})
-        RETURN elementId(u) AS id, u.username AS username, u.password AS password
-    """
-    return conn.query(
-        query=query,
-        parameters={'username': username},
-        db="neo4j"
-    )
-
-def create_user(username, hashed_password):
-    query = """
-        CREATE (u:User {username: $username, password: $password})
-        RETURN elementId(u) AS id, u.username AS username
-    """
-    return conn.query(
-        query=query,
-        parameters={
-            'username': username,
-            'password': hashed_password
-        },
-        db="neo4j"
-    )
-
-def user_exists(username):
-    query = """
-        MATCH (u:User {username: $username})
-        RETURN count(u) > 0 AS exists
-    """
-    return conn.query(
-        query=query,
-        parameters={'username': username},
-        db="neo4j"
-    )[0]['exists']
 
 def get_node(id):
     query = """
@@ -180,7 +30,12 @@ def list_nodes(filters=None, page=1, page_size=10):
     if filters:
         filter_conditions = []
         for key, value in filters.items():
-            filter_conditions.append(f"n.{key} = ${key}")
+            if key == 'start_date':
+                filter_conditions.append(f"n.created_at >= datetime(${key})")
+            elif key == 'end_date':
+                filter_conditions.append(f"n.created_at <= datetime(${key})")
+            else:
+                filter_conditions.append(f"n.{key} = ${key}")
         where_clause = "WHERE " + " AND ".join(filter_conditions)
     
     label_clause = f":{label}" if label else ""
@@ -189,6 +44,7 @@ def list_nodes(filters=None, page=1, page_size=10):
         MATCH (n{label_clause})
         {where_clause}
         RETURN properties(n) AS node, labels(n) AS labels
+        ORDER BY n.created_at DESC
         SKIP $skip LIMIT $limit
     """
     
@@ -211,13 +67,18 @@ def list_nodes(filters=None, page=1, page_size=10):
 
 
 def create_node(properties):
-    labels = properties.pop('labels', None)
+    labels = properties.pop('labels', [])
     slug = properties.pop('slug', None)
+    title = properties.pop('title', None)
+    content = properties.pop('content', None)
     
-    for key in reserved_properties:
-        properties.pop(key, None)
-        
     properties['id'] = generate_id(labels=labels, slug=slug)
+    
+    properties['title'] = title
+    properties['content'] = content
+    time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    properties['created_at'] = time_now
+    properties['updated_at'] = time_now
     
     query = f"""
         CREATE (n:{':'.join(labels)} $properties)
@@ -236,6 +97,51 @@ def create_node(properties):
         }
     else:
         return None
+
+
+def update_node(id, properties):
+    labels = properties.pop('labels', [])
+    label_clause = f", n:{':'.join(labels)}" if labels else ""
+    title = properties.pop('title', None)
+    content = properties.pop('content', None)
+    
+    properties['title'] = title
+    properties['content'] = content
+    time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    properties['updated_at'] = time_now
+    
+    query = f"""
+        MATCH (n) WHERE n.id = $id
+        SET n += $properties{label_clause}
+        RETURN n.id AS id
+    """
+    
+    records = conn.query(
+        query=query,
+        parameters={'id': id, 'properties': properties},
+        db="neo4j"
+    )
+    
+    if records:
+        return {
+            'id': records[0]['id']
+        }
+    else:
+        return None
+
+
+def delete_node(id):
+    query = """
+        MATCH (n) WHERE n.id = $id
+        DETACH DELETE n
+        RETURN n
+    """
+    result = conn.query(
+        query=query,
+        parameters={'id': id},
+        db="neo4j"
+    )
+    return result if result else None
     
 
 def create_graph_batch(batch):
@@ -263,3 +169,54 @@ def create_nodes_in_batches(data):
     for i in range(0, len(data), batch_size):
         batch = data[i:i + batch_size]
         create_graph_batch(batch)
+
+
+def list_node_labels():
+    query = """
+        CALL db.labels()
+    """
+    records = conn.query(
+        query=query,
+        db="neo4j"
+    )
+    return [record['label'] for record in records]
+
+
+def get_graph_neighborhood(ids):
+    query = f"""
+        WITH {ids} AS nodeIds
+        MATCH (n)
+        WHERE n.id IN nodeIds
+        OPTIONAL MATCH (n)-[r]->(m)
+        WITH COLLECT(DISTINCT n) + COLLECT(DISTINCT m) AS allNodes, COLLECT(DISTINCT r) AS allRels
+        RETURN {{
+            nodes: [node IN allNodes WHERE node IS NOT NULL | {{
+                id: node.id,
+                title: node.title,
+                label: labels(node)[0]
+            }}],
+            links: [rel IN allRels WHERE rel IS NOT NULL | {{
+                src: startNode(rel).id,
+                dst: endNode(rel).id
+            }}]
+        }} AS graph
+    """
+    records = conn.query(
+        query=query,
+        db="neo4j"
+    )
+    return records[0]['graph'] if records else None
+
+
+def get_recent_nodes():
+    query = """
+        MATCH (n)
+        RETURN n.id AS id, n.title AS title, n.created_at AS created_at
+        ORDER BY n.created_at DESC
+        LIMIT 5
+    """
+    records = conn.query(
+        query=query,
+        db="neo4j"
+    )
+    return records

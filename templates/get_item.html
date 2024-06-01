@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% include 'trix.html' %}
+
+<script>
+    data = {{ data | tojson | safe }};
+    itemTitle.innerText = data.title || data.id;
+    inputItemTitle.value = data.title || '';
+    inputItemContent.value = data.content;
+    inputItemTitle.readOnly = true;
+    inputItemContent.editor.element.setAttribute('contentEditable', false)
+    formItem.setAttribute('data-item-id', '{{ data.id }}')
+</script>
+
+<script src="{{ url_for('static',filename='scripts/get_item.js') }}"></script>
+
+{% endblock %}

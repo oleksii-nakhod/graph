@@ -1,28 +1,39 @@
-<form id="form-document" onsubmit="return validateDocumentForm();">
+<form id="form-item" onsubmit="return validateItemForm();">
     <div class="mb-3">
-        <label for="input-document-title" class="fs-4">Title</label>
-        <input type="text" class="form-control form-control-lg"
-            id="input-document-title">
+        <h1 id="item-title"></h1>
+        <label id="label-input-item-title" for="input-item-title" class="fs-4">Title</label>
+        <input type="text" class="form-control form-control-lg" id="input-item-title">
     </div>
     <div class="mb-3">
-        <label for="input-document-content" class="fs-4">Content</label>
+        <label for="input-item-labels" class="fs-4">Labels</label>
+        <div>
+            <div id="input-item-labels" class="btn-group flex-wrap gap-2" role="group">
+                {% for label in data.labels %}
+                    <input type="checkbox" class="btn-check" name="labels" id="label-{{ label }}" value="{{ label }}" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="label-{{ label }}">{{ label }}</label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label for="input-item-content" class="fs-4">Content</label>
         <input id="input-hidden-trix" type="hidden" name="content">
-        <trix-editor input="input-hidden-trix" id="input-document-content"></trix-editor>
+        <trix-editor input="input-hidden-trix" id="input-item-content"></trix-editor>
     </div>
     
-    <div id="document-actions" class="row gap-3 justify-content-center">
+    <div id="item-actions" class="row gap-3 justify-content-center">
         <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-back"><i class="bi bi-arrow-left"></i> Back
         </button>
         {% if 'logged_in' in session and session['logged_in'] %}
-        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-delete-document"><i class="bi bi-trash"></i> Delete
+        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-delete-item"><i class="bi bi-trash"></i> Delete
         </button>
-        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-cancel-document"><i class="bi bi-x-lg"></i> Discard
+        <button type="button" class="btn btn-secondary d-none col-12 col-md-3 mb-3" id="btn-cancel-item"><i class="bi bi-x-lg"></i> Discard
         </button>
-        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-edit-document"><i class="bi bi-pencil"></i> Edit
+        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-edit-item"><i class="bi bi-pencil"></i> Edit
         </button>
-        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-save-document"><i class="bi bi-floppy2-fill"></i> Save
+        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-save-item"><i class="bi bi-floppy2-fill"></i> Save
         </button>
-        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-create-document"><i class="bi bi-plus-lg"></i> Create
+        <button type="button" class="btn btn-primary d-none col-12 col-md-3 mb-3" id="btn-create-item"><i class="bi bi-plus-lg"></i> Create
         </button>
         {% endif %}
     </div>
@@ -41,7 +52,7 @@
 </div>
 
 <div id="alert-submission-error" class="alert alert-danger d-none" role="alert">
-    An error occurred while saving the document. Please try again.
+    An error occurred while saving the item. Please try again.
 </div>
 
 <script src="{{ url_for('static',filename='scripts/trix.js') }}"></script>

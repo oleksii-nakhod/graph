@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, session, jsonify
-from db.queries import get_recent_documents, search_documents, get_document_by_id, create_document, update_document, delete_document
-from utils.helpers import create_openai_embedding, html_to_text, convert_results, get_documents_data, create_openai_completion, create_openai_transcription
+from db.queries import list_nodes, get_node, list_node_labels, get_graph_neighborhood
+from utils.helpers import create_openai_embedding, html_to_text, convert_results, create_openai_completion, create_openai_transcription
 from datetime import datetime, timezone
 
 main_bp = Blueprint('main', __name__)
@@ -8,88 +8,56 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/', methods=['GET'])
 def index():
-    results = get_recent_documents()
-    response_data = convert_results(results)
-    return render_template('index.html', data=response_data)
+    recent_items = list_nodes()
+    labels = list_node_labels()
+    data = {
+        'graph': get_graph_neighborhood([item['id'] for item in recent_items]),
+        'labels': labels,
+    }
+    return render_template('index.html', data=data)
 
 
 @main_bp.route('/search', methods=['GET'])
 def search():
-    query = request.args.get('q')
-    if not query:
-        return redirect(url_for('index'))
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('page_size', 10))
     
-    openai_response = create_openai_embedding(query)
-    results = search_documents(openai_response.data[0].embedding, 5)
-    data = convert_results(results)
+    filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size']}
+    
+    data = {
+        "results": list_nodes(filters, page, page_size)
+    }
+    print(data)
     return render_template('search.html', data=data)
 
 
-@main_bp.route('/api/docs/<document_id>', methods=['GET'])
-def api_get_document(document_id):
-    document = get_document_by_id(document_id)
-    if document is None:
-        return jsonify({'message': 'Document not found'}), 404
-    return jsonify(document)
-
-
-@main_bp.route('/api/docs', methods=['GET'])
-def api_list_documents():
+@main_bp.route('/ask', methods=['GET'])
+def ask():
     query = request.args.get('q')
-    data = get_documents_data(query)
-    if data is None:
-        return jsonify({'message': 'No data found'}), 404
-    return jsonify(data)
+    if not query:
+        return redirect(url_for('main.index'))
+    
+    openai_response = create_openai_embedding(query)
+    results = list_nodes(openai_response.data[0].embedding, 5)
+    data = convert_results(results)
+    return render_template('ask.html', data=data)
 
 
-@main_bp.route('/api/docs', methods=['POST'])
-def api_create_document():
+@main_bp.route('/items/<item_id>', methods=['GET'])
+def get_item(item_id):
+    item = get_node(item_id)
+    if item is None:
+        return redirect(url_for('main.index'))
+    return render_template('get_item.html', data=item)
+
+
+@main_bp.route('/new', methods=['GET'])
+def create_item():
     if not 'logged_in' in session or not session['logged_in']:
-        return jsonify({'message': 'You do not have permission to create documents'}), 403
-    
-    data = request.json
-    if not data or 'title' not in data or 'content' not in data:
-        return jsonify({'message': 'Title and content are required'}), 400
+        return redirect(url_for('main.index'))
+    labels = list_node_labels()
+    return render_template('create_item.html', data={"labels": labels})
 
-    title = data['title']
-    content = data['content']
-    created_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    response = create_openai_embedding(f"{title} {html_to_text(content)}")
-    
-    result = create_document(session['id'], title, content, response.data[0].embedding, created_at)
-    return jsonify({'id': result[0]['id']}), 201
-
-
-@main_bp.route('/api/docs/<document_id>', methods=['PUT'])
-def api_update_document(document_id):
-    if not 'logged_in' in session or not session['logged_in']:
-        return jsonify({'message': 'You do not have permission to update documents'}), 403
-    
-    data = request.json
-    if not data or 'title' not in data or 'content' not in data:
-        return jsonify({'message': 'Title and content are required'}), 400
-    
-    title = data['title']
-    content = data['content']
-    response = create_openai_embedding(f"{title} {html_to_text(content)}")
-    
-    result = update_document(document_id, title, content, response.data[0].embedding)
-    if not result:
-        return jsonify({'message': 'Document not found'}), 404
-    
-    return jsonify({'message': 'Document updated successfully'}), 200
-
-
-@main_bp.route('/api/docs/<document_id>', methods=['DELETE'])
-def api_delete_document(document_id):
-    if not 'logged_in' in session or not session['logged_in']:
-        return jsonify({'message': 'You do not have permission to delete documents'}), 403
-    
-    result = delete_document(document_id)
-    if not result:
-        return jsonify({'message': 'Document not found'}), 404
-    
-    return jsonify({'message': 'Document deleted successfully'}), 200
 
 
 @main_bp.route('/api/chat/completions', methods=['POST'])
@@ -108,4 +76,4 @@ def api_create_transcription():
     if file_extension not in allowed_formats:
         return jsonify({'message': f"Unsupported file format. Supported formats: {allowed_formats}, got '{file_extension}'"}), 400
     text = create_openai_transcription(file)
-    return jsonify({text})
+    return jsonify({'text': text})

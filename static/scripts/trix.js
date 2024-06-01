@@ -1,37 +1,38 @@
 const btnBack = document.querySelector('#btn-back');
-const btnDelete = document.querySelector('#btn-delete-document');
-const btnCancel = document.querySelector('#btn-cancel-document');
-const btnEdit = document.querySelector('#btn-edit-document');
-const btnSave = document.querySelector('#btn-save-document');
-const btnCreate = document.querySelector('#btn-create-document');
+const btnDelete = document.querySelector('#btn-delete-item');
+const btnCancel = document.querySelector('#btn-cancel-item');
+const btnEdit = document.querySelector('#btn-edit-item');
+const btnSave = document.querySelector('#btn-save-item');
+const btnCreate = document.querySelector('#btn-create-item');
 
-const formDocument = document.querySelector('#form-document');
-const inputDocumentTitle = document.querySelector('#input-document-title');
-const inputDocumentContent = document.querySelector('#input-document-content');
+const formItem = document.querySelector('#form-item');
+const itemTitle = document.querySelector('#item-title');
+const inputItemTitle = document.querySelector('#input-item-title');
+const inputItemContent = document.querySelector('#input-item-content');
 const inputHiddenTrix = document.querySelector('#input-hidden-trix');
 const alertSubmissionSuccess = document.querySelector('#alert-submission-success');
 const spinnerLoading = document.querySelector('#spinner-loading');
-const documentActions = document.querySelector('#document-actions');
+const itemActions = document.querySelector('#item-actions');
 
 const trixToolbar = document.querySelector('trix-toolbar');
 
 const redirectTimeout = 1500;
 
 function enableEditor() {
-    inputDocumentTitle.removeAttribute('readonly');
-    inputDocumentContent.editor.element.setAttribute('contentEditable', true)
+    inputItemTitle.removeAttribute('readonly');
+    inputItemContent.editor.element.setAttribute('contentEditable', true)
     trixToolbar.classList.remove('d-none');
 }
 
 function disableEditor() {
-    inputDocumentTitle.setAttribute('readonly', '');
-    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    inputItemTitle.setAttribute('readonly', '');
+    inputItemContent.editor.element.setAttribute('contentEditable', false)
     trixToolbar.classList.add('d-none');
 }
 
-function validateDocumentForm() {
-    const title = document.querySelector('#input-document-title').value;
-    const content = document.querySelector('#input-document-content').value;
+function validateItemForm() {
+    const title = document.querySelector('#input-item-title').value;
+    const content = document.querySelector('#input-item-content').value;
 
     const alertContentMissing = document.querySelector('#alert-content-missing');
 
@@ -45,25 +46,33 @@ function validateDocumentForm() {
     return true;
 }
 
-function createDocument(title, content) {
-    if (!validateDocumentForm()) {
+function createItem(title, content) {
+    if (!validateItemForm()) {
         return false;
     }
 
-    inputDocumentTitle.setAttribute('readonly', '');
-    inputDocumentContent.editor.element.setAttribute('contentEditable', false)
+    inputItemTitle.setAttribute('readonly', '');
+    inputItemContent.editor.element.setAttribute('contentEditable', false)
     btnCreate.classList.add('d-none');
     btnBack.classList.add('d-none');
     spinnerLoading.classList.remove('d-none');
 
-    fetch(`${url_create_document}`, {
+    const labels = [];
+    const labelInputs = document.querySelectorAll('input[name="labels"]:checked');
+
+    labelInputs.forEach((labelInput) => {
+        labels.push(labelInput.value);
+    });
+
+    fetch(`${url_create_item}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             title,
-            content
+            content,
+            labels
         })
     })
         .then(response => {
@@ -83,8 +92,8 @@ function createDocument(title, content) {
             alertSubmissionError.textContent = error.message;
             alertSubmissionError.classList.remove('d-none');
 
-            inputDocumentTitle.removeAttribute('readonly');
-            inputDocumentContent.editor.element.setAttribute('contentEditable', true)
+            inputItemTitle.removeAttribute('readonly');
+            inputItemContent.editor.element.setAttribute('contentEditable', true)
             btnCreate.classList.remove('d-none');
             btnBack.classList.remove('d-none');
             spinnerLoading.classList.add('d-none');
@@ -94,21 +103,21 @@ function createDocument(title, content) {
         });
 }
 
-function updateDocument(documentId, title, content) {
-    if (!validateDocumentForm()) {
+function updateItem(itemId, title, content) {
+    if (!validateItemForm()) {
         return false;
     }
-    url = url_update_document.replace('DOCUMENT_ID', documentId);
+    url = url_update_item.replace('NODE_ID', itemId);
 
     disableEditor();
 
     setElementVisibility({
         '#btn-back': false,
-        '#btn-delete-document': false,
-        '#btn-cancel-document': false,
-        '#btn-edit-document': false,
-        '#btn-save-document': false,
-        '#btn-create-document': false
+        '#btn-delete-item': false,
+        '#btn-cancel-item': false,
+        '#btn-edit-item': false,
+        '#btn-save-item': false,
+        '#btn-create-item': false
     });
 
     spinnerLoading.classList.remove('d-none');
@@ -149,8 +158,8 @@ function updateDocument(documentId, title, content) {
         });
 }
 
-function deleteDocument(documentId) {
-    url = url_delete_document.replace('DOCUMENT_ID', documentId);
+function deleteItem(itemId) {
+    url = url_delete_item.replace('NODE_ID', itemId);
 
     btnBack.classList.add('d-none');
     btnEdit.classList.add('d-none');
@@ -182,8 +191,8 @@ function deleteDocument(documentId) {
             setElementVisibility({
                 '#alert-submission-error': true,
                 '#btn-back': true,
-                '#btn-delete-document': true,
-                '#btn-edit-document': true
+                '#btn-delete-item': true,
+                '#btn-edit-item': true
             });
         })
         .finally(() => {
@@ -199,55 +208,63 @@ if (btnBack) {
 
 if (btnDelete) {
     btnDelete.addEventListener('click', function () {
-        documentId = formDocument.getAttribute('data-document-id');
-        deleteDocument(documentId);
+        itemId = formItem.getAttribute('data-item-id');
+        deleteItem(itemId);
     });
 }
 
 if (btnCancel) {
     btnCancel.addEventListener('click', function () {
-        btnSave.classList.add('d-none');
-        btnCancel.classList.add('d-none');
-        btnEdit.classList.remove('d-none');
-        btnDelete.classList.remove('d-none');
-        btnBack.classList.remove('d-none');
-        btnCreate.classList.add('d-none');
+        setElementVisibility({
+            '#btn-back': true,
+            '#btn-delete-item': true,
+            '#btn-cancel-item': false,
+            '#btn-edit-item': true,
+            '#btn-save-item': false,
+            '#btn-create-item': false,
+            '#label-input-item-title': false,
+            '#input-item-title': false,
+            '#item-title': true,
+            'trix-toolbar': false
+        });
 
-        inputDocumentTitle.setAttribute('readonly', true);
-        inputDocumentContent.editor.element.setAttribute('contentEditable', false);
-        trixToolbar.classList.add('d-none');
+        inputItemTitle.setAttribute('readonly', true);
+        inputItemContent.editor.element.setAttribute('contentEditable', false);
     });
 }
 
 if (btnEdit) {
     btnEdit.addEventListener('click', function() {
         enableEditor();
-        inputDocumentContent.focus();
+        inputItemContent.focus();
         setElementVisibility({
             '#btn-back': false,
-            '#btn-delete-document': false,
-            '#btn-cancel-document': true,
-            '#btn-edit-document': false,
-            '#btn-save-document': true,
-            '#btn-create-document': false
+            '#btn-delete-item': false,
+            '#btn-cancel-item': true,
+            '#btn-edit-item': false,
+            '#btn-save-item': true,
+            '#btn-create-item': false,
+            '#label-input-item-title': true,
+            '#input-item-title': true,
+            '#item-title': false
         });
     });
 }
 
 if (btnSave) {
     btnSave.addEventListener('click', function() {
-        documentId = formDocument.getAttribute('data-document-id');
-        title = inputDocumentTitle.value;
-        content = inputDocumentContent.value;
-        updateDocument(documentId, title, content);
+        itemId = formItem.getAttribute('data-item-id');
+        title = inputItemTitle.value;
+        content = inputItemContent.value;
+        updateItem(itemId, title, content);
     });
 }
 
 if (btnCreate) {
     btnCreate.addEventListener('click', function() {
-        title = inputDocumentTitle.value;
-        content = inputDocumentContent.value;
-        createDocument(title, content);
+        title = inputItemTitle.value;
+        content = inputItemContent.value;
+        createItem(title, content);
     });
 }
 
@@ -304,8 +321,8 @@ function handleFileUploadResponse(data, file, selectedRange, attachment) {
 function processAudioFile(url, selectedRange) {
     const audioHtml = `<audio controls src=${url}>`;
     const audioAttachment = new Trix.Attachment({ content: audioHtml });
-    inputDocumentContent.editor.setSelectedRange(selectedRange);
-    inputDocumentContent.editor.insertAttachment(audioAttachment);
+    inputItemContent.editor.setSelectedRange(selectedRange);
+    inputItemContent.editor.insertAttachment(audioAttachment);
 }
 
 function createAudioTranscription(form, file) {
@@ -318,7 +335,7 @@ function createAudioTranscription(form, file) {
         }
         return response.json();
     }).then(data => {
-        inputDocumentContent.editor.insertHTML(`<i>Audio transcription:\n${data.text}</i>`);
+        inputItemContent.editor.insertHTML(`<i>Audio transcription:\n${data.text}</i>`);
     }).catch(console.error);
 }
 
@@ -374,22 +391,22 @@ function readStream(reader, decoder) {
         if (done) {
             return;
         }
-        inputDocumentContent.editor.insertHTML(`<i>${decoder.decode(value)}</i>`);
+        inputItemContent.editor.insertHTML(`<i>${decoder.decode(value)}</i>`);
         readStream(reader, decoder);
     });
 }
 
 function restoreEditorState() {
-    inputDocumentContent.editor.element.setAttribute('contentEditable', true);
+    inputItemContent.editor.element.setAttribute('contentEditable', true);
 }
 
 function uploadAttachment(attachment) {
     const file = attachment.file;
-    const selectedRange = inputDocumentContent.editor.getSelectedRange();
+    const selectedRange = inputItemContent.editor.getSelectedRange();
 
     if (file) {
         const form = prepareFormData(file);
-        inputDocumentContent.editor.element.setAttribute('contentEditable', false);
+        inputItemContent.editor.element.setAttribute('contentEditable', false);
 
         const uploadFilePromise = uploadFile(form)
             .then(data => handleFileUploadResponse(data, file, selectedRange, attachment))

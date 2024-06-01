@@ -1,11 +1,11 @@
 setElementVisibility({
-    '#btn-go-create-document': false,
+    '#btn-go-create-item': false,
     '#btn-back': true,
-    '#btn-delete-document': false,
-    '#btn-cancel-document': false,
-    '#btn-edit-document': false,
-    '#btn-save-document': false,
-    '#btn-create-document': true
+    '#btn-delete-item': false,
+    '#btn-cancel-item': false,
+    '#btn-edit-item': false,
+    '#btn-save-item': false,
+    '#btn-create-item': true
 });
 
 function generateRandomPlaceholder() {
@@ -31,8 +31,8 @@ function generateRandomPlaceholder() {
     return placeholders[randomIndex];
 }
 
-if (inputDocumentTitle && inputDocumentContent) {
+if (inputItemTitle && inputItemContent) {
     placeholder = generateRandomPlaceholder();
-    inputDocumentTitle.placeholder = placeholder.title;
-    inputDocumentContent.setAttribute('placeholder', placeholder.content);
+    inputItemTitle.placeholder = placeholder.title;
+    inputItemContent.setAttribute('placeholder', placeholder.content);
 }
