@@ -51,7 +51,7 @@ async function getInsights() {
 
     const systemMessage = {
         role: 'system',
-        content: "Say hi"
+        content: "You are a helpful assistant that provides insights into information that is stored in a knowledge base. You can call external functions to retrieve additional data if necessary."
     }
 
     const userMessage = {

@@ -3,8 +3,8 @@ from typing import get_type_hints
 from .Item import get_item_details, list_items
 
 functions = {
-    'Item.get_item_details': get_item_details,
-    'Item.list_items': list_items
+    'Item_get_item_details': get_item_details,
+    'Item_list_items': list_items
 }
 
 def generate_tool_object(func):
@@ -23,7 +23,7 @@ def generate_tool_object(func):
     
     module_name = func.__module__.split('.')[-1]
     function_name = func.__name__
-    full_name = f"{module_name}.{function_name}"
+    full_name = f"{module_name}_{function_name}"
     
     tool_object = {
         "type": "function",

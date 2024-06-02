@@ -7,6 +7,8 @@ import shortuuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_caching import Cache
 from openai_tools import tools, tool_names, functions
+import json
+from flask import stream_with_context
 
 openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
@@ -45,13 +47,59 @@ def create_openai_completion(messages):
         stream = openai_client.chat.completions.create(
             model=Config.OPENAI_COMPLETION_MODEL,
             messages=messages,
+            tools=tools,
+            tool_choice='auto',
             stream=True
         )
+        streaming_content = ""
+        tool_calls = []
         for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                yield chunk.choices[0].delta.content
+            msg = chunk.choices[0]
+            delta = msg.delta
+            if delta.content is not None:
+                streaming_content += delta.content
+                yield delta.content
+            if delta.tool_calls is not None:
+                tc_chunks = delta.tool_calls
+                for tc_chunk in tc_chunks:
+                    if len(tool_calls) <= tc_chunk.index:
+                        tool_calls.append({"id": "", "type": "function", "function": { "name": "", "arguments": "" } })
+                    tc = tool_calls[tc_chunk.index]
+                    
+                    if tc_chunk.id:
+                        tc["id"] += tc_chunk.id
+                    if tc_chunk.function.name:
+                        tc["function"]["name"] += tc_chunk.function.name
+                    if tc_chunk.function.arguments:
+                        tc["function"]["arguments"] += tc_chunk.function.arguments
+            if msg.finish_reason == "stop":
+                messages.append({"role": "assistant", "content": streaming_content})
+            elif msg.finish_reason == "tool_calls":
+                messages.append(
+                    {
+                        "tool_calls": tool_calls,
+                        "role": "assistant",
+                        "content": None
+                    }
+                )
+                for tool_call in tool_calls:
+                    before_tool_call = f"<div class='alert alert-primary' role='alert'>Triggered tool '{tool_call['function']['name']}' with arguments {tool_call['function']['arguments']}</div>"
+                    yield before_tool_call
+                    function_output = json.dumps(use_tool(
+                        tool_call["function"]["name"], json.loads(tool_call["function"]["arguments"])
+                    ))
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call["id"],
+                            "role": "tool",
+                            "content": f"{function_output}"
+                        }
+                    )
+                    yield from create_openai_completion(
+                        messages
+                    )
     
-    return generate(), {"Content-Type": "text/plain"}
+    return stream_with_context(generate())
 
 
 def create_openai_transcription(file):
