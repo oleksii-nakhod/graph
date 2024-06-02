@@ -18,4 +18,6 @@ def api_use_tool():
     if not tool_name:
         return jsonify({'message': 'Tool name is required'}), 400
     result = use_tool(tool_name, tool_arguments)
+    if result.get('error'):
+        return jsonify(result), 400
     return jsonify(result), 200

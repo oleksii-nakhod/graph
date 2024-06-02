@@ -2,6 +2,8 @@ from models.neo4j_connection import conn
 from utils.helpers import generate_id, create_openai_embedding, create_item_embedding
 from datetime import datetime, timezone
 from config import Config
+import cProfile
+import pstats
 
 
 def get_node(id):
@@ -125,6 +127,8 @@ def create_node(properties):
 
 
 def update_node(id, properties):
+    time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    
     labels = properties.pop('labels', [])
     label_clause = f", n:{':'.join(labels)}" if labels else ""
     title = properties.pop('title', None)
@@ -132,7 +136,7 @@ def update_node(id, properties):
     
     properties['title'] = title
     properties['content'] = content
-    time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    
     properties['updated_at'] = time_now
     properties['embedding'] = create_item_embedding({
         'title': title,
@@ -172,33 +176,61 @@ def delete_node(id):
         db="neo4j"
     )
     return result if result else None
+
+
+def create_node_batch(nodes):
+    time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
+    for node in nodes:
+        slug = node.pop('slug', None)
+        title = node.pop('title', None)
+        content = node.pop('content', None)
+        
+        node['labels'].append('Item')
+        
+        node.update({
+            'id': generate_id(labels=node['labels'], slug=slug),
+            'title': title,
+            'content': content,
+            'created_at': time_now,
+            'updated_at': time_now,
+            'embedding': create_item_embedding({
+                'title': title,
+                'labels': node['labels'],
+                'content': content
+            })
+        })
 
-def create_graph_batch(batch):
-    for item in batch:
-        labels = ":".join(item.pop('labels', []))
-        edges = item.pop('edges', [])
-        for edge in edges:
-            cypher_query = f'''
-            MERGE (a:{labels} {{id: $item_id}})
-            SET a.features = $features, a.label = $label
-            MERGE (b {{id: $dst_id}})
-            MERGE (a)-[r:{edge['type']}]->(b)
-            '''
-            conn.query(query=cypher_query, parameters={
-                'item_id': item['id'],
-                'features': item['features'],
-                'label': item['label'],
-                'dst_id': edge['dst_id']
-            }, db="neo4j")
+    query = f"""
+        UNWIND $batch AS node
+        CREATE (n)
+        SET n = node.properties
+        WITH n, node
+        CALL apoc.create.addLabels(n, node.labels) YIELD node AS nWithLabels
+        RETURN nWithLabels.id AS id
+    """
+
+    parameters = {'batch': [{'properties': node, 'labels': node.pop('labels')} for node in nodes]}
+    
+    records = conn.query(
+        query=query,
+        parameters=parameters,
+        db="neo4j"
+    )
+        
+    return [{'id': record['id']} for record in records]
 
 
-
-def create_nodes_in_batches(data):
-    batch_size = 1000
-    for i in range(0, len(data), batch_size):
-        batch = data[i:i + batch_size]
-        create_graph_batch(batch)
+def profile_function(nodes):
+    profiler = cProfile.Profile()
+    profiler.enable()
+    res = create_node_batch(nodes)
+    profiler.disable()
+    
+    stats = pstats.Stats(profiler)
+    stats.sort_stats(pstats.SortKey.TIME)
+    stats.print_stats()
+    return res
 
 
 def list_node_labels():

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db.queries import get_node, list_nodes, create_node, create_nodes_in_batches, list_node_labels, update_node, delete_node, list_indexes, create_index
+from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, list_indexes, create_index, profile_function
 from config import Config
 
 graph_bp = Blueprint('graph', __name__)
@@ -81,12 +81,28 @@ def api_delete_node(node_id):
 
 
 @graph_bp.route('/api/nodes/batch', methods=['POST'])
-def api_create_nodes_batch():
-    data = request.json
-    if not isinstance(data, list) or not data:
+def api_create_node_batch():
+    nodes = request.json
+    
+    if not isinstance(nodes, list):
         return jsonify({'message': 'A list of node data is required'}), 400
-    create_nodes_in_batches(data)
-    return jsonify({'message': 'Nodes and edges created successfully'}), 201
+    
+    for properties in nodes:
+        if 'labels' not in properties:
+            return jsonify({'message': 'Label array is required'}), 400
+        
+        reserved_fields_used = set(properties.keys()).intersection(Config.RESERVED_FIELDS)
+        if reserved_fields_used:
+            return jsonify({'message': f'Reserved fields used: {reserved_fields_used}'}), 400
+
+        reserved_labels_used = set(properties['labels']).intersection(Config.RESERVED_LABELS)
+        if reserved_labels_used:
+            return jsonify({'message': f'Reserved labels used: {reserved_labels_used}'}), 400
+    
+    result = create_node_batch(nodes)
+    if result is None:
+        return jsonify({'message': 'Nodes not created'}), 500
+    return jsonify(result), 201
 
 
 @graph_bp.route('/api/labels', methods=['GET'])
