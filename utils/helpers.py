@@ -6,6 +6,7 @@ from models.neo4j_connection import conn
 import shortuuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_caching import Cache
+from openai_tools import tools, tool_names, functions
 
 openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
@@ -153,3 +154,15 @@ def get_documents_data(query):
 def generate_id(labels, slug, length=16):
     slug = slug or labels[0][:3].lower()
     return f"{slug}_{shortuuid.ShortUUID().random(length)}"
+
+
+def list_tools():
+    return tools
+
+
+def use_tool(tool_name, tool_arguments):
+    if tool_name in tool_names:
+        tool = functions[tool_name]
+        return tool(**tool_arguments)
+    else:
+        return {"error": "Tool not found"}
