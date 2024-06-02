@@ -83,7 +83,7 @@ def create_openai_completion(messages):
                     }
                 )
                 for tool_call in tool_calls:
-                    before_tool_call = f"<div class='alert alert-primary' role='alert'>Triggered tool '{tool_call['function']['name']}' with arguments {tool_call['function']['arguments']}</div>"
+                    before_tool_call = f"<div class='alert alert-primary' role='alert'>Triggered  <span class='fw-bold'>{tool_call['function']['name']}</span> with arguments {tool_call['function']['arguments']}</div>"
                     yield before_tool_call
                     function_output = json.dumps(use_tool(
                         tool_call["function"]["name"], json.loads(tool_call["function"]["arguments"])
@@ -95,9 +95,9 @@ def create_openai_completion(messages):
                             "content": f"{function_output}"
                         }
                     )
-                    yield from create_openai_completion(
-                        messages
-                    )
+                yield from create_openai_completion(
+                    messages
+                )
     
     return stream_with_context(generate())
 
