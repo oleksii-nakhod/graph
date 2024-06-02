@@ -8,7 +8,7 @@ class Neo4jConnection:
         self.__driver = None
         try:
             self.__driver = GraphDatabase.driver(self.__uri, auth=(self.__auth))
-            self.create_indexes()
+            # self.create_indexes()
         except Exception as e:
             print("Failed to create the driver:", e)
         

@@ -13,8 +13,8 @@ app.secret_key = os.environ.get("SECRET_KEY")
 
 init_cache(app)
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-app.logger.info('Logging setup complete')
+# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# app.logger.info('Logging setup complete')
 
 from routes.main import main_bp
 from routes.auth import auth_bp

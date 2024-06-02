@@ -22,17 +22,21 @@ def search():
     page = int(request.args.get('page', 1))
     page_size = int(request.args.get('page_size', 10))
     query = request.args.get('q', '')
-    filters = json.loads(request.args['filter'])
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    insights = request.args.get('insights') == 'true'
+    filters = request.args.get('filter', '{}')
+    filters = json.loads(filters)
     
     labels = list_node_labels()
-    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size)
+    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
     
     data = {
         'results': nodes,
         'graph': get_graph_neighborhood([node['id'] for node in nodes]),
         'labels': labels,
     }
-    return render_template('search.html', data=data)
+    return render_template('search.html', data=data, insights=insights)
 
 
 @main_bp.route('/items/<item_id>', methods=['GET'])

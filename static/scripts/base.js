@@ -1,5 +1,6 @@
 function validateSearchForm() {
     const query = document.querySelector('#input-query').value;
+    const isAIAssistEnabled = document.querySelector('#input-insights').checked;
     const alertSearch = document.querySelector('#alert-search');
 
     if (!query) {
@@ -8,7 +9,9 @@ function validateSearchForm() {
     }
 
     alertSearch.classList.add('d-none');
-    window.location.href = '/search?q=' + encodeURIComponent(query);
+    const searchURL = `/search?q=${encodeURIComponent(query)}${isAIAssistEnabled ? '&insights=true' : ''}`;
+
+    window.location.href = searchURL;
     return false;
 }
 

@@ -136,7 +136,7 @@ function updateItem(itemId, title, content) {
             if (response.ok) {
                 alertSubmissionSuccess.classList.remove('d-none');
                 setInterval(() => {
-                    location.href = '/'
+                    history.back();
                 }, redirectTimeout);
             } else {
                 return response.json().then(data => {
@@ -311,6 +311,7 @@ function handleFileUploadResponse(data, file, selectedRange, attachment) {
     });
 
     if (file.type.startsWith('audio')) {
+        console.log('Processing audio file');
         return processAudioFile(url, selectedRange);
     } else if (file.type.startsWith('image')) {
         console.log('Processing image file');

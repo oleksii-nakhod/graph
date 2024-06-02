@@ -1,0 +1,5 @@
+<span class="label-badges">
+    {% for label in labels %}
+        <a href='{{ url_for("main.search") }}?filter={"labels":["{{ label }}"]}'><span class="badge rounded-pill text-bg-primary">{{ label }}</span></a>
+    {% endfor %}
+</span>

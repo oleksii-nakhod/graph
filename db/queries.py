@@ -1,5 +1,5 @@
 from models.neo4j_connection import conn
-from utils.helpers import generate_id, create_openai_embedding
+from utils.helpers import generate_id, create_openai_embedding, create_item_embedding
 from datetime import datetime, timezone
 from config import Config
 
@@ -22,38 +22,49 @@ def get_node(id):
         return None
 
 
-def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at', sort_order='DESC'):
+def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at', sort_order='DESC', start_date=None, end_date=None):
     skip = (page - 1) * page_size
-    label = filters.pop('label', None) if filters else None
+    labels = filters.pop('labels', []) if filters else []
     where_clause = ""
+    filter_conditions = []
+    
     if filters:
-        filter_conditions = []
         for key, value in filters.items():
             filter_conditions.append(f"n.{key} = ${key}")
-        where_clause = "WHERE " + " AND ".join(filter_conditions)
+
+    if labels:
+        label_conditions = [f"'{label}' IN labels(n)" for label in labels]
+        filter_conditions.extend(label_conditions)
+        
+    if start_date:
+        filter_conditions.append("n.created_at >= $start_date")
     
-    label_clause = f":{label}" if label else ""
+    if end_date:
+        filter_conditions.append("n.created_at <= $end_date")
+
+    if filter_conditions:
+        where_clause = "WHERE " + " AND ".join(filter_conditions)
     
     
     neo4j_query = f"""
-        MATCH (n {label_clause})
+        CALL db.index.vector.queryNodes('item_embedding_index', {page * page_size}, $embedding) 
+        YIELD node AS n, score
         {where_clause}
-        WITH n
-
-        CALL db.index.vector.queryNodes('item_embedding_index', {page * page_size * 2}, $embedding) 
-        YIELD node AS similarDocument, score
-        WITH DISTINCT similarDocument, score, properties(similarDocument) AS nodeProperties, labels(similarDocument) AS nodeLabels
-
-        ORDER BY score DESC, similarDocument.{sort_by} {sort_order}
-        WITH DISTINCT similarDocument, nodeProperties, nodeLabels, score
-
-        WITH collect({{nodeProperties: nodeProperties, nodeLabels: nodeLabels, score: score}}) AS results
-        UNWIND results[..{page_size}] AS result
-        RETURN result.nodeProperties, result.nodeLabels, result.score
+        
+        WITH n, score
+        ORDER BY score DESC, n.{sort_by} {sort_order}
+        
+        SKIP {skip} LIMIT {page_size}
+        
+        RETURN properties(n) AS properties, labels(n) AS labels, score
     """
     
-    parameters = filters if filters else {}
-    parameters['embedding'] = create_openai_embedding(query)
+    parameters = filters.copy() if filters else {}
+    parameters.update({
+        'embedding': create_openai_embedding(query),
+        'start_date': start_date,
+        'end_date': end_date
+    })
     
     records = conn.query(
         query=neo4j_query,
@@ -62,10 +73,11 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
     )
     results = []
     for record in records:
-        node = record['nodeProperties']
-        node['labels'] = record['nodeLabels']
+        node = record['properties']
+        node['labels'] = record['labels']
         node['score'] = record['score']
         node.pop('embedding', None)
+        
         
         results.append(node)
     
@@ -74,6 +86,8 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
 
 def create_node(properties):
     labels = properties.pop('labels', [])
+    labels.append('Item')
+    
     slug = properties.pop('slug', None)
     title = properties.pop('title', None)
     content = properties.pop('content', None)
@@ -85,9 +99,11 @@ def create_node(properties):
     time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     properties['created_at'] = time_now
     properties['updated_at'] = time_now
-    properties['embedding'] = create_openai_embedding(f"{title} {content}")
-    
-    labels.append('Item')
+    properties['embedding'] = create_item_embedding({
+        'title': title,
+        'labels': labels,
+        'content': content
+    })
     
     query = f"""
         CREATE (n:{':'.join(labels)} $properties)
@@ -118,7 +134,11 @@ def update_node(id, properties):
     properties['content'] = content
     time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     properties['updated_at'] = time_now
-    properties['embedding'] = create_openai_embedding(f"{title} {content}")
+    properties['embedding'] = create_item_embedding({
+        'title': title,
+        'labels': labels,
+        'content': content
+    })
     
     query = f"""
         MATCH (n) WHERE n.id = $id

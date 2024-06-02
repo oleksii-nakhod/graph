@@ -1,19 +1,13 @@
 from flask import Blueprint, request, jsonify
-from models.neo4j_connection import conn
-from utils.helpers import create_openai_embedding
 from db.queries import get_node, list_nodes, create_node, create_nodes_in_batches, list_node_labels, update_node, delete_node, list_indexes, create_index
+from config import Config
 
 graph_bp = Blueprint('graph', __name__)
-
-reserved_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'username', 'password', 'embedding']
-hidden_fields = ['password']
-reserved_labels = ['User']
-
 
 @graph_bp.route('/api/nodes/<id>', methods=['GET'])
 def api_get_node(id):
     node = get_node(id)
-    for field in hidden_fields:
+    for field in Config.HIDDEN_FIELDS:
         if field in node:
             del node[field]
     if node is None:
@@ -26,11 +20,13 @@ def api_list_nodes():
     page = int(request.args.get('page', 1))
     page_size = int(request.args.get('page_size', 10))
     filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size']}
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     query = request.args.get('q', "")
     
-    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size)
+    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
     for node in nodes:
-        for field in hidden_fields:
+        for field in Config.HIDDEN_FIELDS:
             if field in node:
                 del node[field]
     return jsonify({"results": nodes})
@@ -43,11 +39,11 @@ def api_create_node():
     if 'labels' not in properties:
         return jsonify({'message': 'Label array is required'}), 400
     
-    reserved_fields_used = set(properties.keys()).intersection(reserved_fields)
+    reserved_fields_used = set(properties.keys()).intersection(Config.RESERVED_FIELDS)
     if reserved_fields_used:
         return jsonify({'message': f'Reserved fields used: {reserved_fields_used}'}), 400
 
-    reserved_labels_used = set(properties['labels']).intersection(reserved_labels)
+    reserved_labels_used = set(properties['labels']).intersection(Config.RESERVED_LABELS)
     if reserved_labels_used:
         return jsonify({'message': f'Reserved labels used: {reserved_labels_used}'}), 400
     
@@ -62,11 +58,11 @@ def api_update_node(node_id):
     properties = request.json
     labels = properties.get('labels', [])
     
-    reserved_fields_used = set(properties.keys()).intersection(reserved_fields)
+    reserved_fields_used = set(properties.keys()).intersection(Config.RESERVED_FIELDS)
     if reserved_fields_used:
         return jsonify({'message': f'Reserved fields used: {reserved_fields_used}'}), 400
     
-    reserved_labels_used = set(labels).intersection(reserved_labels)
+    reserved_labels_used = set(labels).intersection(Config.RESERVED_LABELS)
     if reserved_labels_used:
         return jsonify({'message': f'Reserved labels used: {reserved_labels_used}'}), 400
     

@@ -17,8 +17,10 @@ def init_cache(app):
         'CACHE_DEFAULT_TIMEOUT': 86400
     })
 
+
 def check_cache(cache_key):
     return cache.get(cache_key)
+
 
 def create_openai_embedding(input):
     cache_key = f'openai_embedding_{input}'
@@ -31,6 +33,10 @@ def create_openai_embedding(input):
     ).data[0].embedding
     cache.set(cache_key, embedding)
     return embedding
+
+
+def create_item_embedding(item):
+    return create_openai_embedding(f"Title: {item['title']}\nLabels: {', '.join(item['labels'])}\nContent: {item['content']}")
 
 
 def create_openai_completion(messages):

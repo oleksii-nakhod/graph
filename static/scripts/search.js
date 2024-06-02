@@ -1,5 +1,3 @@
-answerContent = document.querySelector('#answer-content');
-
 function updateProgressBars() {
     const progressBars = document.querySelectorAll('.progress-bar');
     progressBars.forEach(function (bar) {
@@ -26,14 +24,78 @@ function updateProgressBars() {
     });
 }
 
-function convertUtcToLocal() {
+function formatDateTime() {
     document.querySelectorAll('.datetime').forEach(function (element) {
         const utcTime = element.getAttribute('data-datetime');
-        const localTime = new Date(utcTime).toLocaleString();
-        element.innerHTML = localTime;
+        const date = new Date(utcTime);
+
+        const options = {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+        };
+        const userLocale = navigator.language || 'en-US';
+        const formattedDate = new Intl.DateTimeFormat(userLocale, options).format(date);
+        element.innerHTML = formattedDate;
     });
 }
 
 
-updateProgressBars();
-convertUtcToLocal();
+async function getInsights() {
+    const insightsContent = document.querySelector('#insights-content');
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get('q', '');
+
+    const systemMessage = {
+        role: 'system',
+        content: "Say hi"
+    }
+
+    const userMessage = {
+        role: 'user',
+        content: query
+    };
+
+    const messages = [systemMessage, userMessage];
+
+    const response = await fetch(url_create_completion, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            messages
+        })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let content = '';
+    while (true) {
+        const { done, value } = await reader.read();
+        content += decoder.decode(value);
+        insightsContent.innerHTML = marked.parse(content);
+        if (done) {
+            break;
+        }
+    }
+}
+
+
+function initializeSearch() {
+    updateProgressBars();
+    formatDateTime();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const insights = urlParams.get('insights') === 'true';
+    if (insights) {
+        getInsights();
+    }
+
+}
+
+
+initializeSearch()

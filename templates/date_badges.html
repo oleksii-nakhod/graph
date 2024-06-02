@@ -1,0 +1,29 @@
+<span class="date-badges">
+    <a id="badge-last-day"><span class="badge rounded-pill text-bg-success">Last 24 hours</span></a>
+    <a id="badge-last-week"><span class="badge rounded-pill text-bg-success">Last 7 days</span></a>
+</span>
+
+<script>
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function updateHrefs() {
+        const today = new Date();
+        const oneDayAgo = new Date(today);
+        oneDayAgo.setDate(today.getDate() - 1);
+        const oneWeekAgo = new Date(today);
+        oneWeekAgo.setDate(today.getDate() - 7);
+
+        const oneDayAgoStr = formatDate(oneDayAgo);
+        const oneWeekAgoStr = formatDate(oneWeekAgo);
+
+        document.getElementById('badge-last-day').href = `{{ url_for("main.search") }}?start_date=${oneDayAgoStr}`;
+        document.getElementById('badge-last-week').href = `{{ url_for("main.search") }}?start_date=${oneWeekAgoStr}`;
+    }
+
+    updateHrefs();
+</script>

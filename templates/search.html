@@ -4,6 +4,16 @@
 
 {% include 'searchbar.html' %}
 
+{% if insights %}
+<h2 id="insights" class="pt-4"><i class="bi bi-chat"></i> AI insights <a class="anchor-link" href="#insights" aria-label="Link to this section: Insights">#</a></h2>
+
+<div class="card my-3">
+    <div class="card-body">
+        <div id="insights-content" class="card-text">Fetching your insights...</div>
+    </div>
+</div>
+{% endif %}
+
 <h2 id="title-search-results" class="pt-4"><i class="bi bi-file-earmark-richtext"></i> Search results <a class="anchor-link" href="#search-results" aria-label="Link to this section: Search results">#</a></h2>
 
 {% if data.results %}
@@ -17,12 +27,17 @@
                         {{ node.labels[0] }} {{ node.id }}
                     {% endif %}
                 </h3></a>
-                <h4 class="card-subtitle mb-2 text-body-secondary">
+                
+                {% set labels = node.labels %}
+                {% include 'label_badges.html' %}
+
+                <p class="card-text">{{ node.content | safe }}</p>
+
+                <h4 class="card-subtitle mb-2 mt-3 text-body-secondary">
                     <div class="progress" style="max-width: 200px; max-height: 25px;">
                         <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="1" data-score="{{ node.score }}"></div>
                     </div>
                 </h4>
-                <p class="card-text">{{ node.content | safe }}</p>
             </div>
             <div class="card-footer">
                 <div class="row">
