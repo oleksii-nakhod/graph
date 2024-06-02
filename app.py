@@ -20,11 +20,13 @@ from routes.main import main_bp
 from routes.auth import auth_bp
 from routes.files import files_bp
 from routes.graph import graph_bp
+from routes.openai_functions import openai_functions_bp
 
 app.register_blueprint(main_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(files_bp)
 app.register_blueprint(graph_bp)
+app.register_blueprint(openai_functions_bp)
 
 if __name__ == '__main__':
     serve(app, host='0.0.0.0', port=5004)
