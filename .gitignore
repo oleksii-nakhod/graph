@@ -7,3 +7,4 @@ AmazonProducts
 Cora
 EllipticBitcoin
 data_cache.pkl
+gcn_model.pth
