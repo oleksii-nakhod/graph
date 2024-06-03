@@ -12,5 +12,5 @@ class Config:
     NEO4J_ADMIN_PASSWORD = os.environ.get("NEO4J_ADMIN_PASSWORD")
     OPENAI_EMBEDDING_DIMENSIONS = os.environ.get("OPENAI_EMBEDDING_DIMENSIONS")
     RESERVED_FIELDS = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'username', 'password', 'embedding']
-    HIDDEN_FIELDS = ['password']
+    HIDDEN_FIELDS = ['password', 'embedding']
     RESERVED_LABELS = ['User']

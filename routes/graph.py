@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, list_indexes, create_index, profile_function
+from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, list_indexes, create_index, profile_function, get_edge, create_edge, create_edge_batch
 from config import Config
 
 graph_bp = Blueprint('graph', __name__)
@@ -7,11 +7,11 @@ graph_bp = Blueprint('graph', __name__)
 @graph_bp.route('/api/nodes/<id>', methods=['GET'])
 def api_get_node(id):
     node = get_node(id)
+    if node is None:
+        return jsonify({'message': 'Node not found'}), 404
     for field in Config.HIDDEN_FIELDS:
         if field in node:
             del node[field]
-    if node is None:
-        return jsonify({'message': 'Node not found'}), 404
     return node
 
 
@@ -102,6 +102,48 @@ def api_create_node_batch():
     result = create_node_batch(nodes)
     if result is None:
         return jsonify({'message': 'Nodes not created'}), 500
+    return jsonify(result), 201
+
+
+@graph_bp.route('/api/edges/<id>', methods=['GET'])
+def api_get_edge(id):
+    edge = get_edge(id)
+    if edge is None:
+        return jsonify({'message': 'Edge not found'}), 404
+    for field in Config.HIDDEN_FIELDS:
+        if field in edge:
+            del edge[field]
+    return edge
+
+
+@graph_bp.route('/api/edges', methods=['POST'])
+def api_create_edge():
+    data = request.json
+    if 'src' not in data or 'dst' not in data:
+        return jsonify({'message': 'Source and destination are required'}), 400
+    reserved_fields_used = set(data.keys()).intersection(Config.RESERVED_FIELDS)
+    if reserved_fields_used:
+        return jsonify({'message': f'Reserved fields used: {reserved_fields_used}'}), 400
+    edge = create_edge(data)
+    if edge is None:
+        return jsonify({'message': 'Edge not created'}), 500
+    return jsonify(edge), 201
+
+
+@graph_bp.route('/api/edges/batch', methods=['POST'])
+def api_create_edge_batch():
+    edges = request.json
+    if not isinstance(edges, list):
+        return jsonify({'message': 'A list of edge data is required'}), 400
+    for data in edges:
+        if 'src' not in data or 'dst' not in data:
+            return jsonify({'message': 'Source and destination are required'}), 400
+        reserved_fields_used = set(data.keys()).intersection(Config.RESERVED_FIELDS)
+        if reserved_fields_used:
+            return jsonify({'message': f'Reserved fields used: {reserved_fields_used}'}), 400
+    result = create_edge_batch(edges)
+    if result is None:
+        return jsonify({'message': 'Edges not created'}), 500
     return jsonify(result), 201
 
 

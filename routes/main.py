@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 from db.queries import list_nodes, get_node, list_node_labels, get_graph_neighborhood
 from utils.helpers import create_openai_embedding, convert_results, create_openai_completion, create_openai_transcription
 import json
+from config import Config
 
 main_bp = Blueprint('main', __name__)
 
@@ -30,6 +31,10 @@ def search():
     
     labels = list_node_labels()
     nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
+    for node in nodes:
+        for field in Config.HIDDEN_FIELDS:
+            if field in node:
+                del node[field]
     
     data = {
         'results': nodes,
@@ -41,10 +46,17 @@ def search():
 
 @main_bp.route('/items/<item_id>', methods=['GET'])
 def get_item(item_id):
-    data = get_node(item_id)
-    if data is None:
+    node = get_node(item_id)
+    for field in Config.HIDDEN_FIELDS:
+            if field in node:
+                del node[field]
+    if node is None:
         return redirect(url_for('main.index'))
-    data['graph'] = get_graph_neighborhood([item_id])
+    data = {
+        'item': node,
+        'labels': list_node_labels(),
+        'graph': get_graph_neighborhood([item_id])
+    }
     return render_template('get_item.html', data=data)
 
 

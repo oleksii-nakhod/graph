@@ -199,8 +199,11 @@ def get_documents_data(query):
     return data
 
 
-def generate_id(labels, slug, length=16):
-    slug = slug or labels[0][:3].lower()
+def generate_id(labels, slug=None, length=16):
+    if slug is None and labels:
+        slug = labels[0][:3].lower()
+    elif slug is None:
+        slug = "itm"
     return f"{slug}_{shortuuid.ShortUUID().random(length)}"
 
 

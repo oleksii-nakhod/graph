@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from config import Config
 import cProfile
 import pstats
+import time
 
 
 def get_node(id):
@@ -188,26 +189,28 @@ def create_node_batch(nodes):
         
         node['labels'].append('Item')
         
+        embedding = create_item_embedding({
+            'title': title,
+            'labels': node['labels'],
+            'content': content
+        })
+        
         node.update({
             'id': generate_id(labels=node['labels'], slug=slug),
             'title': title,
             'content': content,
             'created_at': time_now,
             'updated_at': time_now,
-            'embedding': create_item_embedding({
-                'title': title,
-                'labels': node['labels'],
-                'content': content
-            })
+            'embedding': embedding
         })
-
     query = f"""
         UNWIND $batch AS node
         CREATE (n)
         SET n = node.properties
         WITH n, node
-        CALL apoc.create.addLabels(n, node.labels) YIELD node AS nWithLabels
-        RETURN nWithLabels.id AS id
+        CALL apoc.create.addLabels(n, node.labels)
+        YIELD node AS updatedNode
+        RETURN updatedNode.id AS id
     """
 
     parameters = {'batch': [{'properties': node, 'labels': node.pop('labels')} for node in nodes]}
@@ -219,6 +222,90 @@ def create_node_batch(nodes):
     )
         
     return [{'id': record['id']} for record in records]
+
+
+def get_edge(id):
+    query = """
+        MATCH (src)-[r]->(dst)
+        WHERE r.id = $id
+        RETURN properties(r) AS properties, type(r) AS type, src.id AS src, dst.id AS dst
+    """
+    records = conn.query(
+        query=query,
+        parameters={'id': id},
+        db="neo4j"
+    )
+    if records:
+        edge = records[0]['properties']
+        edge.update({
+            'src': records[0]['src'],
+            'dst': records[0]['dst'],
+            'type': records[0]['type']
+        })
+        return edge
+
+
+def create_edge(properties):
+    time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    
+    src_id = properties.pop('src', None)
+    dst_id = properties.pop('dst', None)
+    edge_type = properties.pop('type', 'RELATED')
+    slug = properties.pop('slug', None)
+    
+    properties['id'] = generate_id(labels=[edge_type], slug=slug)
+    properties['created_at'] = time_now
+    properties['updated_at'] = time_now
+    
+    query = f"""
+        MATCH (src), (dst)
+        WHERE src.id = $src_id AND dst.id = $dst_id
+        CREATE (src)-[r:{edge_type} $properties]->(dst)
+        RETURN r.id AS id
+    """
+    records = conn.query(
+        query=query,
+        parameters={'src_id': src_id, 'dst_id': dst_id, 'properties': properties},
+        db="neo4j"
+    )
+    if records:
+        return {
+            'id': records[0]['id']
+        }
+    else:
+        return None
+
+
+def create_edge_batch(edges):
+    time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    
+    for edge in edges:
+        edge_type = edge.get('type', 'RELATED')
+        slug = edge.pop('slug', None)
+        
+        edge.update({
+            'id': generate_id(labels=[edge_type], slug=slug),
+            'created_at': time_now,
+            'updated_at': time_now
+        })
+    
+    query = """
+        UNWIND $batch AS edge
+        MATCH (src:Item {id: edge.src}), (dst:Item {id: edge.dst})
+        CALL apoc.create.relationship(src, edge.type, edge.properties, dst) YIELD rel
+        RETURN rel.id AS id
+    """
+    
+    parameters = {'batch': [{'src': edge['src'], 'dst': edge['dst'], 'properties': edge, 'type': edge.pop('type', 'RELATED')} for edge in edges]}
+    
+    records = conn.query(
+        query=query,
+        parameters=parameters,
+        db="neo4j"
+    )
+    
+    return [{'id': record['id']} for record in records]
+
 
 
 def profile_function(nodes):

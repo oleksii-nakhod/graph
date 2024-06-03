@@ -4,13 +4,13 @@
 {% include 'trix.html' %}
 
 <script>
-    data = {{ data | tojson | safe }};
-    itemTitle.innerText = data.title || data.id;
-    inputItemTitle.value = data.title || '';
-    inputItemContent.value = data.content;
+    item = {{ data.item | tojson | safe }};
+    itemTitle.innerText = item.title || item.id;
+    inputItemTitle.value = item.title || '';
+    inputItemContent.value = item.content;
     inputItemTitle.readOnly = true;
     inputItemContent.editor.element.setAttribute('contentEditable', false)
-    formItem.setAttribute('data-item-id', '{{ data.id }}')
+    formItem.setAttribute('data-item-id', item.id)
 </script>
 
 <script src="{{ url_for('static',filename='scripts/get_item.js') }}"></script>
