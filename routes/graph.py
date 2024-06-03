@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, list_indexes, create_index, profile_function, get_edge, create_edge, create_edge_batch
+from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, list_indexes, create_index, profile_function, get_edge, create_edge, create_edge_batch, list_edges
 from config import Config
 
 graph_bp = Blueprint('graph', __name__)
@@ -19,10 +19,10 @@ def api_get_node(id):
 def api_list_nodes():
     page = int(request.args.get('page', 1))
     page_size = int(request.args.get('page_size', 10))
-    filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size']}
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     query = request.args.get('q', "")
+    filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size', 'start_date', 'end_date', 'q']}
     
     nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
     for node in nodes:
@@ -114,6 +114,22 @@ def api_get_edge(id):
         if field in edge:
             del edge[field]
     return edge
+
+
+@graph_bp.route('/api/edges', methods=['GET'])
+def api_list_edges():
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('page_size', 10))
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size', 'start_date', 'end_date']}
+    
+    edges = list_edges(filters=filters, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
+    for edge in edges:
+        for field in Config.HIDDEN_FIELDS:
+            if field in edge:
+                del edge[field]
+    return jsonify({"results": edges})
 
 
 @graph_bp.route('/api/edges', methods=['POST'])

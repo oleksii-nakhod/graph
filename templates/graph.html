@@ -17,7 +17,12 @@
 
     if ((searchResponse?.graph?.nodes ?? []).length > 0) {
         const nodes = searchResponse.graph.nodes;
-        const links = searchResponse.graph.links;
+        let edges = searchResponse.graph.edges;
+        links = edges.map(link => ({
+            source: link.src,
+            target: link.dst,
+            index: link.index
+        }));
         
         const viz = d3.select('#viz')
 
@@ -28,7 +33,9 @@
         console.log("Links:", links);
 
         const simulation = d3.forceSimulation(nodes)
-            .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+            .force('link', d3.forceLink(links)
+                .id(d => d.id)
+                .distance(100))
             .force('charge', d3.forceManyBody().strength(-200))
             .force('center', d3.forceCenter(width / 2, height / 2));
 
@@ -65,10 +72,10 @@
         function appendNodeContent(container) {
             container.append('circle')
                 .attr('r', 20)
-                .attr('fill', d => colorScale(d.label));
+                .attr('fill', d => colorScale(d.labels[0]));
 
             container.append('text')
-                .text(d => d.title)
+                .text(d => d.title || d.labels[0])
                 .attr('x', 25)
                 .attr('y', 6)
                 .style('font-size', '18px')
@@ -79,11 +86,11 @@
                 .attr('height', 40)
                 .attr('x', -12)
                 .attr('y', -19)
-                .html(d => `<i class="bi ${d.label === 'User' ? 'bi-person' : 'bi-file-text'}" style="font-size:24px;color:white"></i>`);
+                .html(d => `<i class="bi ${d.labels.includes('User') ? 'bi-person' : 'bi-file-text'}" style="font-size:24px;color:white"></i>`);
 
 
             container.append('title')
-                .text(d => d.title);
+                .text(d => d.title || d.labels[0]);
         }
 
         function updateDimensions() {
@@ -94,7 +101,7 @@
         }
 
         node.append('title')
-            .text(d => d.title);
+            .text(d => d.title || d.labels[0]);
 
         simulation.nodes(nodes).on('tick', ticked);
         simulation.force('link').links(links);
@@ -103,10 +110,10 @@
 
         function ticked() {
             link
-                .attr('x1', d => d.src.x)
-                .attr('y1', d => d.src.y)
-                .attr('x2', d => d.dst.x)
-                .attr('y2', d => d.dst.y);
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
 
             node
                 .attr('transform', d => {

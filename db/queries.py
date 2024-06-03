@@ -55,7 +55,7 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
         {where_clause}
         
         WITH n, score
-        ORDER BY score DESC, n.{sort_by} {sort_order}
+        ORDER BY score DESC, n.{sort_by} {sort_order}, n.id ASC
         
         SKIP {skip} LIMIT {page_size}
         
@@ -68,6 +68,9 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
         'start_date': start_date,
         'end_date': end_date
     })
+    
+    print("Neo4j Query:", neo4j_query)
+    print("Parameters:", parameters)
     
     records = conn.query(
         query=neo4j_query,
@@ -245,6 +248,68 @@ def get_edge(id):
         return edge
 
 
+def list_edges(filters=None, page=1, page_size=10, sort_by='created_at', sort_order='DESC', start_date=None, end_date=None):
+    skip = (page - 1) * page_size
+    relationship_type = filters.pop('type', None) if filters else None
+    where_clause = ""
+    filter_conditions = []
+    
+    if filters:
+        for key, value in filters.items():
+            filter_conditions.append(f"n.{key} = ${key}")
+
+    if relationship_type:
+        filter_conditions.extend([f"type(r) = '{relationship_type}'"])
+        
+    if start_date:
+        filter_conditions.append("n.created_at >= $start_date")
+    
+    if end_date:
+        filter_conditions.append("n.created_at <= $end_date")
+
+    if filter_conditions:
+        where_clause = "WHERE " + " AND ".join(filter_conditions)
+    
+    
+    neo4j_query = f"""
+        MATCH (src)-[r]->(dst)
+        {where_clause}
+        
+        WITH r, src, dst
+        ORDER BY r.{sort_by} {sort_order}, r.id ASC
+        
+        SKIP {skip} LIMIT {page_size}
+        
+        RETURN properties(r) AS properties, type(r) AS type, src.id AS src, dst.id AS dst
+    """
+    
+    print("Neo4j Query:", neo4j_query)
+    
+    parameters = filters.copy() if filters else {}
+    parameters.update({
+        'start_date': start_date,
+        'end_date': end_date
+    })
+    
+    records = conn.query(
+        query=neo4j_query,
+        parameters=parameters,
+        db="neo4j"
+    )
+    results = []
+    for record in records:
+        edge = record['properties']
+        edge.update({
+            'src': record['src'],
+            'dst': record['dst'],
+            'type': record['type']
+        })
+        
+        results.append(edge)
+    
+    return results
+
+
 def create_edge(properties):
     time_now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
@@ -331,20 +396,25 @@ def list_node_labels():
     return [record['label'] for record in records]
 
 
-def get_graph_neighborhood(ids):
+def get_graph_neighborhood(ids, node_limit=10, edge_limit=10):
     query = f"""
         WITH {ids} AS nodeIds
         MATCH (n)
         WHERE n.id IN nodeIds
-        OPTIONAL MATCH (n)-[r]->(m)
-        WITH COLLECT(DISTINCT n) + COLLECT(DISTINCT m) AS allNodes, COLLECT(DISTINCT r) AS allRels
+        WITH n
+        LIMIT {node_limit}
+        OPTIONAL MATCH (n)-[r]-(m)
+        WITH n, r, m
+        LIMIT {edge_limit}
+        WITH COLLECT(DISTINCT n) AS nodes, COLLECT(DISTINCT m) AS neighbors, COLLECT(DISTINCT r) AS relationships
+        WITH apoc.coll.toSet(nodes + neighbors) AS uniqueNodes, relationships
         RETURN {{
-            nodes: [node IN allNodes WHERE node IS NOT NULL | {{
+            nodes: [node IN uniqueNodes WHERE node IS NOT NULL | {{
                 id: node.id,
                 title: node.title,
-                label: labels(node)[0]
+                labels: labels(node)
             }}],
-            links: [rel IN allRels WHERE rel IS NOT NULL | {{
+            edges: [rel IN relationships WHERE rel IS NOT NULL | {{
                 src: startNode(rel).id,
                 dst: endNode(rel).id
             }}]

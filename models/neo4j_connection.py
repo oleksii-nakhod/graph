@@ -42,9 +42,19 @@ class Neo4jConnection:
             }}}}
             """,
             """
-            CREATE INDEX item_composite_index IF NOT EXISTS
+            CREATE CONSTRAINT item_id_constraint IF NOT EXISTS
             FOR (n:Item)
-            ON (n.id, n.title, n.created_at)
+            REQUIRE n.id IS UNIQUE
+            """,
+            """
+            CREATE INDEX item_title_index IF NOT EXISTS
+            FOR (n:Item)
+            ON (n.title)
+            """,
+            """
+            CREATE INDEX item_created_at_index IF NOT EXISTS
+            FOR (n:Item)
+            ON (n.created_at)
             """
         ]
         
