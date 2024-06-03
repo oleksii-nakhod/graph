@@ -48,19 +48,31 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
     if filter_conditions:
         where_clause = "WHERE " + " AND ".join(filter_conditions)
     
-    
-    neo4j_query = f"""
-        CALL db.index.vector.queryNodes('item_embedding_index', {page * page_size}, $embedding) 
-        YIELD node AS n, score
-        {where_clause}
-        
-        WITH n, score
-        ORDER BY score DESC, n.{sort_by} {sort_order}, n.id ASC
-        
-        SKIP {skip} LIMIT {page_size}
-        
-        RETURN properties(n) AS properties, labels(n) AS labels, score
-    """
+    if query:
+        neo4j_query = f"""
+            CALL db.index.vector.queryNodes('item_embedding_index', {page * page_size}, $embedding) 
+            YIELD node AS n, score
+            {where_clause}
+            
+            WITH n, score
+            ORDER BY score DESC, n.{sort_by} {sort_order}, n.id ASC
+            
+            SKIP {skip} LIMIT {page_size}
+            
+            RETURN properties(n) AS properties, labels(n) AS labels, score
+        """
+    else:
+        neo4j_query = f"""
+            MATCH (n)
+            {where_clause}
+            
+            WITH n
+            ORDER BY n.{sort_by} {sort_order}, n.id ASC
+            
+            SKIP {skip} LIMIT {page_size}
+            
+            RETURN properties(n) AS properties, labels(n) AS labels
+        """
     
     parameters = filters.copy() if filters else {}
     parameters.update({
@@ -68,9 +80,6 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
         'start_date': start_date,
         'end_date': end_date
     })
-    
-    print("Neo4j Query:", neo4j_query)
-    print("Parameters:", parameters)
     
     records = conn.query(
         query=neo4j_query,
@@ -81,10 +90,8 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
     for record in records:
         node = record['properties']
         node['labels'] = record['labels']
-        node['score'] = record['score']
+        node['score'] = record.get('score', None)
         node.pop('embedding', None)
-        
-        
         results.append(node)
     
     return results
@@ -256,20 +263,19 @@ def list_edges(filters=None, page=1, page_size=10, sort_by='created_at', sort_or
     
     if filters:
         for key, value in filters.items():
-            filter_conditions.append(f"n.{key} = ${key}")
+            filter_conditions.append(f"r.{key} = ${key}")
 
     if relationship_type:
         filter_conditions.extend([f"type(r) = '{relationship_type}'"])
         
     if start_date:
-        filter_conditions.append("n.created_at >= $start_date")
+        filter_conditions.append("r.created_at >= $start_date")
     
     if end_date:
-        filter_conditions.append("n.created_at <= $end_date")
+        filter_conditions.append("r.created_at <= $end_date")
 
     if filter_conditions:
         where_clause = "WHERE " + " AND ".join(filter_conditions)
-    
     
     neo4j_query = f"""
         MATCH (src)-[r]->(dst)
@@ -282,8 +288,6 @@ def list_edges(filters=None, page=1, page_size=10, sort_by='created_at', sort_or
         
         RETURN properties(r) AS properties, type(r) AS type, src.id AS src, dst.id AS dst
     """
-    
-    print("Neo4j Query:", neo4j_query)
     
     parameters = filters.copy() if filters else {}
     parameters.update({

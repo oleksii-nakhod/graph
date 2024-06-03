@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, list_indexes, create_index, profile_function, get_edge, create_edge, create_edge_batch, list_edges
 from config import Config
+import json
 
 graph_bp = Blueprint('graph', __name__)
 
@@ -22,7 +23,9 @@ def api_list_nodes():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     query = request.args.get('q', "")
-    filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size', 'start_date', 'end_date', 'q']}
+    filters = {}
+    if 'filter' in request.args:
+        filters = json.loads(request.args['filter'])
     
     nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
     for node in nodes:
@@ -122,7 +125,9 @@ def api_list_edges():
     page_size = int(request.args.get('page_size', 10))
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    filters = {key: request.args[key] for key in request.args if key not in ['page', 'page_size', 'start_date', 'end_date']}
+    filters = {}
+    if 'filter' in request.args:
+        filters = json.loads(request.args['filter'])
     
     edges = list_edges(filters=filters, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
     for edge in edges:

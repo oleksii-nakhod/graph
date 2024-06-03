@@ -12,7 +12,6 @@
 
 <script>
     const searchResponse = {{ data | tojson | safe }};
-    console.log(searchResponse)
     const vizContainer = document.querySelector('#viz-container');
 
     if ((searchResponse?.graph?.nodes ?? []).length > 0) {
@@ -28,9 +27,6 @@
 
         let width = viz.node().getBoundingClientRect().width;
         let height = viz.node().getBoundingClientRect().height;
-
-        console.log("Nodes:", nodes);
-        console.log("Links:", links);
 
         const simulation = d3.forceSimulation(nodes)
             .force('link', d3.forceLink(links)
