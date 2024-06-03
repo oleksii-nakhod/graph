@@ -25,7 +25,7 @@ def get_node(id):
         return None
 
 
-def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at', sort_order='DESC', start_date=None, end_date=None):
+def list_nodes(filters=None, query="", page=1, page_size=10, sort_by=None, sort_order=None, start_date=None, end_date=None):
     skip = (page - 1) * page_size
     labels = filters.pop('labels', []) if filters else []
     where_clause = ""
@@ -44,6 +44,12 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by='created_at
     
     if end_date:
         filter_conditions.append("n.created_at <= $end_date")
+    
+    if sort_by is None:
+        sort_by = 'created_at'
+    
+    if sort_order is None:
+        sort_order = 'DESC'
 
     if filter_conditions:
         where_clause = "WHERE " + " AND ".join(filter_conditions)
@@ -255,7 +261,7 @@ def get_edge(id):
         return edge
 
 
-def list_edges(filters=None, page=1, page_size=10, sort_by='created_at', sort_order='DESC', start_date=None, end_date=None):
+def list_edges(filters=None, page=1, page_size=10, sort_by=None, sort_order=None, start_date=None, end_date=None):
     skip = (page - 1) * page_size
     relationship_type = filters.pop('type', None) if filters else None
     where_clause = ""
@@ -276,6 +282,12 @@ def list_edges(filters=None, page=1, page_size=10, sort_by='created_at', sort_or
 
     if filter_conditions:
         where_clause = "WHERE " + " AND ".join(filter_conditions)
+        
+    if sort_by is None:
+        sort_by = 'created_at'
+    
+    if sort_order is None:
+        sort_order = 'DESC'
     
     neo4j_query = f"""
         MATCH (src)-[r]->(dst)

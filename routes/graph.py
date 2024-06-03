@@ -22,12 +22,14 @@ def api_list_nodes():
     page_size = int(request.args.get('page_size', 10))
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
     query = request.args.get('q', "")
     filters = {}
     if 'filter' in request.args:
         filters = json.loads(request.args['filter'])
     
-    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
+    nodes = list_nodes(filters=filters, query=query, page=page, page_size=page_size, start_date=start_date, end_date=end_date, sort_by=sort_by, sort_order=sort_order)
     for node in nodes:
         for field in Config.HIDDEN_FIELDS:
             if field in node:
@@ -125,11 +127,13 @@ def api_list_edges():
     page_size = int(request.args.get('page_size', 10))
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+    sort_by = request.args.get('sort_by')
+    sort_order = request.args.get('sort_order')
     filters = {}
     if 'filter' in request.args:
         filters = json.loads(request.args['filter'])
     
-    edges = list_edges(filters=filters, page=page, page_size=page_size, start_date=start_date, end_date=end_date)
+    edges = list_edges(filters=filters, page=page, page_size=page_size, start_date=start_date, end_date=end_date, sort_by=sort_by, sort_order=sort_order)
     for edge in edges:
         for field in Config.HIDDEN_FIELDS:
             if field in edge:
