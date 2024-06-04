@@ -2,7 +2,7 @@ import os
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
-    DOMAIN_NAME = os.environ.get("DOMAIN_NAME")
+    BASE_URL = os.environ.get("BASE_URL")
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
     OPENAI_EMBEDDING_MODEL = os.environ.get("OPENAI_EMBEDDING_MODEL")
     OPENAI_COMPLETION_MODEL = os.environ.get("OPENAI_COMPLETION_MODEL")

@@ -3,5 +3,5 @@ __pycache__
 .env
 cache
 static/files
-data
+data/
 models/transaction_classifier.pth

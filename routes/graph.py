@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, list_indexes, create_index, profile_function, get_edge, create_edge, create_edge_batch, list_edges
+from db.queries import get_node, list_nodes, create_node, create_node_batch, list_node_labels, update_node, delete_node, create_index, get_edge, create_edge, create_edge_batch, list_edges
 from config import Config
 import json
 
@@ -176,14 +176,3 @@ def api_create_edge_batch():
 def api_list_node_labels():
     labels = list_node_labels()
     return jsonify({"labels": labels})
-
-
-@graph_bp.route('/api/indexes', methods=['POST'])
-def api_create_index():
-    data = request.json
-    if 'label' not in data:
-        return jsonify({'message': 'Label is required'}), 400
-    index = create_index(data['label'])
-    if index is None:
-        return jsonify({'message': 'Index not created'}), 500
-    return jsonify({'message': 'Index created successfully'}), 201

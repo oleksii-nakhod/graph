@@ -7,3 +7,5 @@ class TransactionClassifier(GCN):
         class_weights = [0.3, 0.7]
         self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-3, weight_decay=5e-4)
         self.compile(self.optimizer, torch.nn.CrossEntropyLoss, class_weights)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(device)

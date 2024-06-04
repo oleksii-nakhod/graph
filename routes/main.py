@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, session, jsonify
 from db.queries import list_nodes, get_node, list_node_labels, get_graph_neighborhood
-from utils.helpers import create_openai_embedding, convert_results, create_openai_completion, create_openai_transcription
+from utils.helpers import create_openai_completion, create_openai_transcription
 import json
 from config import Config
 

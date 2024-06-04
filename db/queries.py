@@ -2,9 +2,6 @@ from db.neo4j_connection import conn
 from utils.helpers import generate_id, create_openai_embedding, create_item_embedding
 from datetime import datetime, timezone
 from config import Config
-import cProfile
-import pstats
-import time
 
 
 def get_node(id):
@@ -386,19 +383,6 @@ def create_edge_batch(edges):
     )
     
     return [{'id': record['id']} for record in records]
-
-
-
-def profile_function(nodes):
-    profiler = cProfile.Profile()
-    profiler.enable()
-    res = create_node_batch(nodes)
-    profiler.disable()
-    
-    stats = pstats.Stats(profiler)
-    stats.sort_stats(pstats.SortKey.TIME)
-    stats.print_stats()
-    return res
 
 
 def list_node_labels():

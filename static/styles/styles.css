@@ -94,3 +94,8 @@ img {
 figure audio {
     max-width: 100%;
 }
+
+.form-check-input:hover,
+.form-check-label:hover {
+    cursor: pointer;
+}

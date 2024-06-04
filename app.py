@@ -1,6 +1,5 @@
 from flask import Flask
 from waitress import serve
-import logging
 import os
 from dotenv import load_dotenv
 
@@ -18,9 +17,6 @@ app.transaction_classifier.load_for_inference('models/transaction_classifier.pth
 
 from models.helpers import load_preprocessed_data
 app.transaction_data = load_preprocessed_data('data/transaction/transactions.pkl')
-
-# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# app.logger.info('Logging setup complete')
 
 from routes.main import main_bp
 from routes.auth import auth_bp
