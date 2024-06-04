@@ -2,27 +2,26 @@ from bs4 import BeautifulSoup
 from openai import OpenAI
 from config import Config
 from io import BytesIO
-from models.neo4j_connection import conn
+from db.neo4j_connection import conn
 import shortuuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_caching import Cache
 from openai_tools import tools, tool_names, functions
 import json
-from flask import stream_with_context
+from flask import stream_with_context, current_app
 
 openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
-cache = Cache()
 def init_cache(app):
-    cache.init_app(app, config={
+    app.cache = Cache(app, config={
         'CACHE_TYPE': 'FileSystemCache',
-        'CACHE_DIR': 'cache',
+        'CACHE_DIR': 'data/cache',
         'CACHE_DEFAULT_TIMEOUT': 86400
     })
 
 
 def check_cache(cache_key):
-    return cache.get(cache_key)
+    return current_app.cache.get(cache_key)
 
 
 def create_openai_embedding(input):
@@ -34,7 +33,7 @@ def create_openai_embedding(input):
         input=input,
         model=Config.OPENAI_EMBEDDING_MODEL
     ).data[0].embedding
-    cache.set(cache_key, embedding)
+    current_app.cache.set(cache_key, embedding)
     return embedding
 
 
@@ -217,3 +216,5 @@ def use_tool(tool_name, tool_arguments):
         return tool(**tool_arguments)
     else:
         return {"error": "Tool not found"}
+    
+

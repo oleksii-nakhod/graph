@@ -1,4 +1,4 @@
-from models.neo4j_connection import conn
+from db.neo4j_connection import conn
 from utils.helpers import generate_id, create_openai_embedding, create_item_embedding
 from datetime import datetime, timezone
 from config import Config

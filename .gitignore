@@ -3,8 +3,5 @@ __pycache__
 .env
 cache
 static/files
-AmazonProducts
-Cora
-EllipticBitcoin
-data_cache.pkl
-gcn_model.pth
+data
+models/transaction_classifier.pth

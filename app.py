@@ -6,12 +6,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from utils.helpers import init_cache
-
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
 
+from utils.helpers import init_cache
 init_cache(app)
+
+from models.transaction import TransactionClassifier
+app.transaction_classifier = TransactionClassifier()
+app.transaction_classifier.load_for_inference('models/transaction_classifier.pth')
+
+from models.helpers import load_preprocessed_data
+app.transaction_data = load_preprocessed_data('data/transaction/transactions.pkl')
 
 # logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # app.logger.info('Logging setup complete')

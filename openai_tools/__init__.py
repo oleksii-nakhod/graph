@@ -1,10 +1,10 @@
 import inspect
 from typing import get_type_hints
-from .Transaction import predict_class, get_transaction_details
+from .transaction import predict_class, get_transaction_details
 
 functions = {
-    'Transaction_get_transaction_details': get_transaction_details,
-    'Transaction_predict_class': predict_class
+    'transaction_get_transaction_details': get_transaction_details,
+    'transaction_predict_class': predict_class
 }
 
 def generate_tool_object(func):

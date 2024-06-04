@@ -1,4 +1,6 @@
 from typing import List, Dict, Any
+import torch
+from flask import current_app
 
 
 def get_transaction_details(transaction_id: str) -> Dict[str, Any]:
@@ -28,4 +30,12 @@ def predict_class(transaction_id: str) -> Dict[str, Any]:
     Returns:
     Dict[str, Any]: A dictionary containing the predicted class.
     """
-    return None
+    from db.queries import get_node
+    transaction = get_node(transaction_id)
+    transaction_classifier = current_app.transaction_classifier
+    transaction_data = current_app.transaction_data
+    predictions, probabilities = transaction_classifier.predict(transaction_data, transaction['orig_id'])
+    return {
+        'class': predictions.item(),
+        'probability': probabilities.tolist()
+    }
