@@ -9,6 +9,8 @@ from flask_caching import Cache
 from openai_tools import tools, tool_names, functions
 import json
 from flask import stream_with_context, current_app
+import tiktoken
+
 
 openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
@@ -29,12 +31,27 @@ def create_openai_embedding(input):
     cached_data = check_cache(cache_key)
     if cached_data:
         return cached_data
-    embedding = openai_client.embeddings.create(
-        input=input,
-        model=Config.OPENAI_EMBEDDING_MODEL
-    ).data[0].embedding
+    texts = split_text_into_chunks(input)
+    embeddings = []
+    for text in texts:
+        embedding = openai_client.embeddings.create(
+            input=text,
+            model=Config.OPENAI_EMBEDDING_MODEL
+        ).data[0].embedding
+        embeddings.append(embedding)
+    embedding = [sum(x) / len(x) for x in zip(*embeddings)]
     current_app.cache.set(cache_key, embedding)
     return embedding
+
+
+def split_text_into_chunks(text, chunk_size=8000):
+    enc = tiktoken.encoding_for_model(Config.OPENAI_COMPLETION_MODEL)
+    tokens = enc.encode(text)
+    chunks = [tokens[i:i + chunk_size] for i in range(0, len(tokens), chunk_size)]
+
+    text_chunks = [enc.decode(chunk) for chunk in chunks]
+
+    return text_chunks
 
 
 def create_item_embedding(item):

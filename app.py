@@ -31,4 +31,5 @@ app.register_blueprint(graph_bp)
 app.register_blueprint(openai_tools_bp)
 
 if __name__ == '__main__':
-    serve(app, host='0.0.0.0', port=5004)
+    print("Starting server...")
+    serve(app, host='0.0.0.0', port=5004, threads=6)

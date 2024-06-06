@@ -76,7 +76,6 @@ def list_nodes(filters=None, query="", page=1, page_size=10, sort_by=None, sort_
             
             RETURN properties(n) AS properties, labels(n) AS labels
         """
-    
     parameters = filters.copy() if filters else {}
     parameters.update({
         'embedding': create_openai_embedding(query),

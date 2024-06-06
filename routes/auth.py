@@ -11,7 +11,7 @@ def api_login():
     if not username or not password:
         return jsonify({'message': 'Username and password are required'}), 400
     
-    user = list_nodes({'label': 'User', 'username': username})
+    user = list_nodes({'labels': ['User'], 'username': username})
     if not user:
         return jsonify({'message': 'User not found'}), 404
     
@@ -32,7 +32,7 @@ def api_signup():
     if not username or not password:
         return jsonify({'message': 'Username and password are required'}), 400
     
-    if list_nodes({'label': 'User', 'username': username}):
+    if list_nodes({'labels': ['User'], 'username': username}):
         return jsonify({'message': 'Username already exists'}), 409
     
     hashed_password = hash_password(password)

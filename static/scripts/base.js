@@ -40,7 +40,6 @@ function validateSignupForm() {
                 document.getElementById('message-signup-error').style.display = 'none';
                 return response.json();
             } else {
-                document.getElementById('message-signup-success').style.display = 'none';
                 return response.json().then(data => {
                     throw new Error(data.message);
                 });
