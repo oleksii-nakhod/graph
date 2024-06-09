@@ -79,7 +79,7 @@ function validateLoginForm() {
         })
         .catch(error => {
             const errorMessage = document.getElementById('message-login-error');
-            errorMessage.textContent = error;
+            errorMessage.textContent = error.message;
             errorMessage.style.display = 'block';
         });
 
