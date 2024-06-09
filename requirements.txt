@@ -12,10 +12,13 @@ scikit-learn==1.5.0
 pandas==2.2.2
 shortuuid==1.0.13
 tiktoken==0.7.0
+optuna==3.6.1
+sentence-transformers==3.0.1
 
 torch==2.3.0+cu121
 torchvision==0.18.0+cu121
 torchaudio==2.3.0+cu121
+torcheval==0.0.7
 torch-geometric==2.5.3
 torch-sparse==0.6.18
 torch-scatter==2.1.2

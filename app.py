@@ -11,12 +11,12 @@ app.secret_key = os.environ.get("SECRET_KEY")
 from utils.helpers import init_cache
 init_cache(app)
 
-from models.transaction import TransactionClassifier
-app.transaction_classifier = TransactionClassifier()
-app.transaction_classifier.load_for_inference('models/transaction_classifier.pth')
+# from models.transaction import TransactionClassifierGCN
+# app.transaction_classifier = TransactionClassifierGCN()
+# app.transaction_classifier.load_for_inference('models/transaction_classifier_gcn.pth')
 
-from models.helpers import load_preprocessed_data
-app.transaction_data = load_preprocessed_data('data/transaction/transactions.pkl')
+# from models.helpers import load_preprocessed_data
+# app.transaction_data = load_preprocessed_data('data/transaction/transactions.pkl')
 
 from routes.main import main_bp
 from routes.auth import auth_bp

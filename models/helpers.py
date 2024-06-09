@@ -215,7 +215,7 @@ def load_preprocessed_data(file_path):
     return preprocessed_data
 
 
-def create_data_object(nodes, edges, train_mask=None, test_mask=None):
+def create_data_object(nodes, edges):
     sorted_nodes = sorted(nodes, key=lambda node: node['orig_id'])
     sorted_edges = sorted(edges, key=lambda edge: edge['orig_id'])
 
@@ -241,5 +241,5 @@ def create_data_object(nodes, edges, train_mask=None, test_mask=None):
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    data = Data(x=node_features, edge_index=edge_index, y=node_labels, train_mask=train_mask, test_mask=test_mask).to(device)
+    data = Data(x=node_features, edge_index=edge_index, y=node_labels).to(device)
     return data
